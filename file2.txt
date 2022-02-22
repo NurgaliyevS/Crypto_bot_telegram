@@ -1,0 +1,15 @@
+bitcoin {'usd': 38432}
+ethereum {'usd': 2658.0}
+binancecoin {'usd': 380.65}
+litecoin {'usd': 110.7}
+solana {'usd': 89.69}
+avalanche-2 {'usd': 78.91}
+terra-luna {'usd': 49.48}
+ftx-token {'usd': 40.91}
+polkadot {'usd': 17.02}
+uniswap {'usd': 9.42}
+near {'usd': 9.33}
+matic-network {'usd': 1.53}
+cardano {'usd': 0.94473}
+the-graph {'usd': 0.386439}
+dogecoin {'usd': 0.137605}
