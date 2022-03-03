@@ -27,16 +27,15 @@
 
 ## Screenshots:
 <p align="left">
-<img src="../main/assets/images/Screenshot_1.jpg">
-<img src="../main/assets/images/Screenshot_2.jpg">
-<img src="../main/assets/images/Screenshot_3.jpg">
-<img src="../main/assets/images/Screenshot_4.jpg">
-<img src="../main/assets/images/Screenshot_5.jpg">
-<img src="../main/assets/images/Screenshot_6.jpg">
-<img src="../main/assets/images/Screenshot_8.jpg">
-<img src="../main/assets/images/Screenshot_9.jpg">
-<img src="../main/assets/images/Screenshot_10.jpg">
-<img src="../main/assets/images/Screenshot_11.jpg">
+<img src="../main/assets/images/1.jpg" width="300">
+<img src="../main/assets/images/2.jpg" width="300">
+<img src="../main/assets/images/3.jpg" width="300">
+<img src="../main/assets/images/4.jpg" width="300">
+<img src="../main/assets/images/5.jpg" width="300">
+<img src="../main/assets/images/6.jpg width="300"">
+<img src="../main/assets/images/7.jpg" width="300">
+<img src="../main/assets/images/8.jpg" width="300">
+<img src="../main/assets/images/9.jpg" width="300">
   
 </p>
 
