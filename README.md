@@ -25,6 +25,22 @@
 /creator - Write to the creator
 ```
 
+## Screenshots:
+<p align="left">
+<img src="../main/assets/images/Screenshot_1.jpg">
+<img src="../main/assets/images/Screenshot_2.jpg">
+<img src="../main/assets/images/Screenshot_3.jpg">
+<img src="../main/assets/images/Screenshot_4.jpg">
+<img src="../main/assets/images/Screenshot_5.jpg">
+<img src="../main/assets/images/Screenshot_6.jpg">
+<img src="../main/assets/images/Screenshot_8.jpg">
+<img src="../main/assets/images/Screenshot_9.jpg">
+<img src="../main/assets/images/Screenshot_10.jpg">
+<img src="../main/assets/images/Screenshot_11.jpg">
+  
+</p>
+
+
 ### Chips: ###
 ```
 This bot has its own database, the maximum simple and easy.
