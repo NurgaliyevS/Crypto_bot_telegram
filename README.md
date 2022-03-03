@@ -32,7 +32,7 @@
 <img src="../main/assets/images/3.jpg" width="300">
 <img src="../main/assets/images/4.jpg" width="300">
 <img src="../main/assets/images/5.jpg" width="300">
-<img src="../main/assets/images/6.jpg width="300"">
+<img src="../main/assets/images/6.jpg" width="300">
 <img src="../main/assets/images/7.jpg" width="300">
 <img src="../main/assets/images/8.jpg" width="300">
 <img src="../main/assets/images/9.jpg" width="300">
