@@ -1,9 +1,13 @@
 import requests
 from binance.client import Client
+import os
+import settings
 
-api_key = 'your_binance_api'
-api_secret = 'your_binance_api_secret'
-# threshold = 30000
+
+
+
+api_key = os.getenv('binance_api_key')
+api_secret = os.getenv('binance_api_secret')
 
 
 
@@ -24,7 +28,6 @@ def check_btc_price():
     for i in price:
         result += i
     return result
-
 
 
 def check_ada_price():
