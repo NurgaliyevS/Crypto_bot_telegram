@@ -4,7 +4,6 @@ from collections import OrderedDict
 import requests
 import json
 from time import sleep
-# from telegram.ext import ParseMode
 import time
 import sqlite3
 import crypto_price
@@ -178,7 +177,7 @@ def callbacks(message):
     bot.send_message(message.chat.id, "Write a message to the creator of the bot: \n{link}!".format(link=link))
 
 
-def help_crypto(message):
+def help_crypto_list_with_price(message):
     msg = bot.send_message(message.chat.id, "Please, wait. I receive an information.")
     bot.send_message(message.chat.id, f"""\
 You can only set alerts for these coins:
@@ -215,24 +214,68 @@ Dogecoin {crypto_price.check_dogecoin_price()}$
 """)
 
 
+def help_crypto_list(message):
+    # msg = bot.send_message(message.chat.id, "Please, wait. I receive an information.")
+    bot.send_message(message.chat.id, f"""\
+You can only set alerts for these coins:
+
+Bitcoin 
+
+Ethereum 
+
+Binancecoin 
+
+Litecoin 
+
+Solana
+
+Avalanche-2 
+
+Terra-luna
+
+FTX-Token 
+
+Polkadot 
+
+Uniswap 
+
+NEAR 
+
+Matic-network 
+
+Cardano 
+
+The-Graph 
+
+Dogecoin 
+""")
+
 
 @bot.message_handler(commands=['alert'])
 def alert (message):
     #### /alert
     #### пользователь вводит сначала команду alert
-    help_crypto(message)
-    msg = bot.send_message(message.chat.id, "Чтобы поставить оповещение "
-                                      "\nНапишите название крипты и цену"
-                                      "\nНапример: Bitcoin 50000")
+    help_crypto_list(message)
+    msg = bot.send_message(message.chat.id, "To set an alert."
+                                        "\n"
+                                      "\nWrite the name of the"
+                                      "\ncryptocurrency and the price."
+                                      "\n"
+                                      "\nExample: "
+                                      "\nBitcoin 50000"
+                                            "\n"
+                                            "\nIf you want to exit?"
+                                            "\n/start")
     bot.register_next_step_handler(msg, add_record_db)
 
 
-
-@bot.message_handler(content_types=['continue'])
 def add_record_db(message):
     #### ПОТОМ ЧЕЛОВЕК ПИШЕТ ОТДЕЛЬНО В ЧАТЕ
     #### НАПРИМЕР
     #### BITCOIN 25000
+    if message.text == "/start":
+        return start(message)
+
     crypto_coin = ['bitcoin', 'ethereum', 'binancecoin',
      'litecoin', 'solana', 'avalanche-2',
      'terra-luna', 'ftx-token',
@@ -289,11 +332,9 @@ def add_record_db(message):
 
 def make_a_new_alert(message):
     bot.send_message(message.chat.id, "Do you want to continue?"
-                                            "\nType: "
                                             "\n/alert"
                                             "\nIf you want to exit?"
-                                            "\ntype: "
-                                            "\n/main")
+                                            "\n/start")
 
 
 def create_db():
@@ -444,8 +485,6 @@ def delete_record_from_db(message):
     except:
         msg = bot.send_message(message.chat.id, "Try another one: ")
         bot.register_next_step_handler(msg, delete_record_from_db)
-
-
 
 
 
