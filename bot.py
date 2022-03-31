@@ -10,21 +10,14 @@ import crypto_price
 import os
 import settings
 
-
 link = "https://t.me/yatemez"
-
-
 
 api_key = telebot.TeleBot(os.getenv('api_key'))
 bot = telebot.TeleBot(os.getenv('bot'))
 
-
-
 cg = CoinGeckoAPI()
 
-
 link = "https://t.me/yatemez"
-
 
 @bot.message_handler(commands=['btc'])
 def bitcoin(message):
@@ -140,7 +133,6 @@ def ethereum(message):
 	price = cg.get_price(ids='litecoin', vs_currencies='usd')
 	bot.send_message(message.chat.id, f'Litecoin  {price["litecoin"]["usd"] }$')
 
-
 def collect_data():
     s = requests.Session()
     response = s.get(url="https://api.coingecko.com/api/v3/simple/price?ids=bitcoin%2Cftx-token%2Ccardano%2Cthe-graph%2Cnear%2Cpolkadot%2Cavalanche-2%2Cdogecoin%2Cethereum%2Cterra-luna%2Clitecoin%2Cmatic-network%2Csolana%2Cbinancecoin%2Cuniswap&vs_currencies=usd")
@@ -150,20 +142,33 @@ def collect_data():
     for i in result_data:
         line = ' '.join(str(x) for x in i)
         f.write(line + '\n')
-    # sleep(delay)
     f.close()
-
+    result = []
+    file = open('crypto_list_price.txt', 'w', encoding='utf-8')
+    with open('file2.txt','r', encoding='utf-8') as f: 
+        for line in f.readlines():
+            result = line.strip()
+            result_2 = result.split()
+            try:
+                if (result_2[2].isnumeric):
+                    if (result_2[1].find('usd')):
+                        if (result_2[0].isalpha):
+                            result = result_2[0][0].upper() + result_2[0][1:] + ' ' + result_2[1] + ' ' + result_2[2]
+                            file.write(''.join(result))
+                            file.write('\n')
+            except:
+                print('bad')
+        file.close()
 
 @bot.message_handler(commands=['main'])
 def pop(message):
     bot.send_message(message.chat.id, 'Please, wait. I receive an information.')
     time.sleep(10)
     collect_data()
-    myfile = open('file2.txt', 'r')
+    myfile = open('crypto_list_price.txt', 'r')
     data = myfile.read()
-    data = data.replace("{", " ~").replace("'","").replace("}","$").replace("usd","").replace(":", " ")
+    data = data.replace("{", '~').replace("'","").replace("}","$").replace("usd","").replace(":", "")
     bot.send_message(message.chat.id, data)
-
 
 
 
@@ -268,7 +273,6 @@ def alert (message):
                                             "\n/start")
     bot.register_next_step_handler(msg, add_record_db)
 
-
 def add_record_db(message):
     #### ПОТОМ ЧЕЛОВЕК ПИШЕТ ОТДЕЛЬНО В ЧАТЕ
     #### НАПРИМЕР
@@ -329,15 +333,14 @@ def add_record_db(message):
                                                 "\nBitcoin 50000.")
         bot.register_next_step_handler(msg, add_record_db)
 
-
 def make_a_new_alert(message):
     bot.send_message(message.chat.id, "Do you want to continue?"
                                             "\n/alert"
                                             "\nIf you want to exit?"
                                             "\n/start")
 
-
-def create_db():
+@bot.message_handler(commands=['create_db'])
+def create_db(message):
     connect = sqlite3.connect('customer.db')
     cursor = connect.cursor()
     cursor.execute("""CREATE TABLE IF NOT EXISTS SGROUP (
@@ -365,11 +368,10 @@ def create_db():
                             FOREIGN KEY(id_coin)REFERENCES COIN(id)
                             )""")
     connect.commit()
+    bot.send_message(message.chat.id, "You database has been created.")
 
-
-
-
-def constant_db():
+@bot.message_handler(commands=['constant_db'])
+def constant_db(message):
     connect = sqlite3.connect('customer.db')
     cursor = connect.cursor()
     cursor.executescript("INSERT INTO SGROUP (id, group_name) VALUES(1488, 'free');"
@@ -389,11 +391,11 @@ def constant_db():
                    "INSERT INTO COIN (id, coin_name) VALUES(13, 'cardano');"
                    "INSERT INTO COIN (id, coin_name) VALUES(14, 'the-graph');"
                    "INSERT INTO COIN (id, coin_name) VALUES(15, 'dogecoin');")
-
     connect.commit()
+    bot.send_message(message.chat.id, "You constants has been added to database.")
 
-
-def update_constant_db():
+@bot.message_handler(commands=['upd_constant_db'])
+def update_constant_db(message):
     connect = sqlite3.connect('customer.db')
     cursor = connect.cursor()
     cursor.execute("""UPDATE COIN SET id = 16, coin_name = Fantom
@@ -401,16 +403,17 @@ def update_constant_db():
     connect.commit()
     cursor.close
     connect.close()
+    bot.send_message(message.chat.id, "You constants has been updated to database.")
 
-
-def new_constant_db():
+@bot.message_handler(commands=['new_constant_db'])
+def new_constant_db(message):
     connect = sqlite3.connect('customer.db')
     cursor = connect.cursor()
     cursor.execute("INSERT INTO COIN (id, coin_name) VALUES (16, 'Fantom')")
     connect.commit()
     cursor.close
     connect.close()
-
+    bot.send_message(message.chat.id, "You constants has been added to database.")
 
 #### ЧТЕНИЕ ВСЕГО ЧТО ЕСТЬ В БАЗЕ ДАННЫХ
 #### НЕОБХОДИМО БРАТЬ ОБРАБОТАТЬ ЭТИ ДАННЫЕ
@@ -456,15 +459,11 @@ def read_sqlite_table(message):
             sqlite_connection.close()
             print("Соединение с SQLite закрыто")
 
-
-
 @bot.message_handler(commands=['delete'])
 def delete(message):
     read_sqlite_table(message)
     msg = bot.send_message(message.chat.id, "Choose a note number which you would like to delete, {0.first_name}!".format(message.from_user, bot.get_me()))
     bot.register_next_step_handler(msg, delete_record_from_db)
-
-
 
 def delete_record_from_db(message):
     delete_note_id = message.text
@@ -486,15 +485,11 @@ def delete_record_from_db(message):
         msg = bot.send_message(message.chat.id, "Try another one: ")
         bot.register_next_step_handler(msg, delete_record_from_db)
 
-
-
-
 # @bot.message_handler(func=lambda message: True)
 # def command_default(m):
 #     # this is the standard reply to a normal message
 #     bot.send_message(m.chat.id, "I don't understand, try with /help")
 #
-
 
 bot.polling(none_stop=True, timeout=123)
 
