@@ -1,3 +1,4 @@
+import numpy
 import telebot
 from pycoingecko import CoinGeckoAPI
 from collections import OrderedDict
@@ -9,6 +10,8 @@ import sqlite3
 import crypto_price
 import os
 import settings
+import pandas as pd
+from IPython.display import display
 
 link = "https://t.me/yatemez"
 
@@ -484,6 +487,33 @@ def delete_record_from_db(message):
     except:
         msg = bot.send_message(message.chat.id, "Try another one: ")
         bot.register_next_step_handler(msg, delete_record_from_db)
+
+# result_data = cg.get_coins_list()
+# f = open('get_coins_list.txt', 'w')
+# for i in result_data:
+#     line = ' '.join(str(x) for x in i)
+#     f.write(line + '\n')
+# f.close()
+
+# result_data_2 = cg.get_coins_markets(vs_currency='usd')
+# f = open('get_coins_markets.txt', 'w')
+# for i in result_data_2:
+#     line = ' '.join(str(x) for x in i)
+#     f.write(line + '\n')
+# f.close()
+
+# result_data_3 = cg.get_coin_ticker_by_id()
+# f = open('get_coin_ticker_by_id.txt', 'w')
+# for i in result_data_2:
+#     line = ' '.join(str(x) for x in i)
+#     f.write(line + '\n')
+# f.close()
+
+coin_market = cg.get_coins_markets(vs_currency='usd')
+df_market = pd.DataFrame(coin_market, columns=['id','market_cap_rank','name','current_price',"price_change_24h","price_change_percentage_24h",'total_volume',"market_cap_change_percentage_24h",  "circulating_supply", "total_supply","max_supply", "high_24h", "low_24h", ])
+connect = sqlite3.connect('customer.db')
+df_market.to_sql(name='Coins_Markets', con=connect)
+connect.close()
 
 # @bot.message_handler(func=lambda message: True)
 # def command_default(m):
