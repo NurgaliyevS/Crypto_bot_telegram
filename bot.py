@@ -488,38 +488,98 @@ def delete_record_from_db(message):
         msg = bot.send_message(message.chat.id, "Try another one: ")
         bot.register_next_step_handler(msg, delete_record_from_db)
 
-# result_data = cg.get_coins_list()
-# f = open('get_coins_list.txt', 'w')
-# for i in result_data:
-#     line = ' '.join(str(x) for x in i)
-#     f.write(line + '\n')
-# f.close()
+def get_top_100_coins():
+    coin_market = cg.get_coins_markets(vs_currency='usd')
+    df_market = pd.DataFrame(coin_market, columns=['market_cap_rank','id','name','current_price',"price_change_24h","price_change_percentage_24h",'market_cap',"market_cap_change_percentage_24h",'total_volume',  "circulating_supply", "max_supply", "high_24h", "low_24h", ])   
+    connect = sqlite3.connect('coins.db')
+    df_market.to_sql(name='Coins_Markets', con=connect, if_exists='replace')
+    connect.close()
 
-# result_data_2 = cg.get_coins_markets(vs_currency='usd')
-# f = open('get_coins_markets.txt', 'w')
-# for i in result_data_2:
-#     line = ' '.join(str(x) for x in i)
-#     f.write(line + '\n')
-# f.close()
 
-# result_data_3 = cg.get_coin_ticker_by_id()
-# f = open('get_coin_ticker_by_id.txt', 'w')
-# for i in result_data_2:
-#     line = ' '.join(str(x) for x in i)
-#     f.write(line + '\n')
-# f.close()
-
-coin_market = cg.get_coins_markets(vs_currency='usd')
-df_market = pd.DataFrame(coin_market, columns=['id','market_cap_rank','name','current_price',"price_change_24h","price_change_percentage_24h",'total_volume',"market_cap_change_percentage_24h",  "circulating_supply", "total_supply","max_supply", "high_24h", "low_24h", ])
-connect = sqlite3.connect('customer.db')
-df_market.to_sql(name='Coins_Markets', con=connect)
-connect.close()
-
-# @bot.message_handler(func=lambda message: True)
-# def command_default(m):
-#     # this is the standard reply to a normal message
-#     bot.send_message(m.chat.id, "I don't understand, try with /help")
-#
+@bot.message_handler(commands=['records'])
+def get_100_coins_db(message):
+    try:
+        bot.send_message(message.chat.id, 'Please, wait. I receive an information.')
+        sqlite_connection = sqlite3.connect('coins.db')
+        cursor = sqlite_connection.cursor()
+        print("Подключен к SQLite")
+        # people_id = message.chat.id
+        # ## так как people_id это форматирование, поэтому перед SELECT знак f
+        # cursor.execute(f"SELECT id FROM CUSTOMER WHERE id = {people_id}")
+        # sqlite_select_query = """SELECT cc.note_id, cc.id_customer, cc.id_coin, cc.price_coin, c.customer_name, cn.coin_name from CUSTOMER_COIN cc, CUSTOMER c, Coin cn WHERE cc.id_coin """
+        sqlite_select_query = f"""SELECT cm.market_cap_rank, cm.name, cm.current_price, cm.price_change_24h, cm.price_change_percentage_24h, cm.market_cap, cm.market_cap_change_percentage_24h, cm.max_supply, cm.circulating_supply, cm.high_24h, cm.low_24h
+        FROM Coins_Markets cm"""
+        cursor.execute(sqlite_select_query)
+        text = cursor.fetchall()
+        print("Всего строк: ", len(text))
+        # print("Вывод каждой строки")
+        a = []
+        #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
+        #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
+        #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
+        with open("crypto.txt", 'w') as f:
+            for i in range(len(text)):
+                if text[i][0]:
+                    f.write('Market_Cap_Rank: ')
+                    f.write(str(text[i][0]))
+                    f.write('\n')
+                if text[i][1]:
+                    f.write('Coin: ')
+                    f.write(str(text[i][1]))
+                    f.write('\n')
+                if text[i][2]:
+                    f.write('Current_Price: ')
+                    f.write(str(text[i][2]))
+                    f.write('\n')
+                if text[i][3]:
+                    f.write('Price_Change_24h: ')
+                    f.write(str(text[i][3]))
+                    f.write('\n')
+                if text[i][4]:
+                    f.write('Price_Change_Percentage_24h: ')
+                    f.write(str(text[i][4]))
+                    f.write('\n')
+                if text[i][5]:
+                    numbers = "{:,}".format(text[i][5])
+                    f.write('Market_Cap: ')
+                    f.write(str(numbers))
+                    f.write('\n')
+                if text[i][6]:
+                    f.write('Market_Cap_Change_Percentage_24h: ')
+                    f.write(str(text[i][6]))
+                    f.write('\n')
+                if text[i][7]:
+                    numbers = "{:,}".format(text[i][7])
+                    f.write('Max_Supply: ')
+                    f.write(str(numbers))
+                    f.write('\n')
+                if text[i][8]:
+                    numbers = "{:,}".format(text[i][8])
+                    f.write('Circulating_Supply: ')
+                    f.write(str(numbers))
+                    f.write('\n')
+                if text[i][9]:
+                    f.write('Price_High_24h: ')
+                    f.write(str(text[i][9]))
+                    f.write('\n')
+                if text[i][10]:
+                    f.write('Price_low_24h: ')
+                    f.write(str(text[i][10]))
+                    f.write('\n')
+                f.write('\n')
+            f.close()
+        cursor.close()
+        doc = open('crypto.txt', 'rb')
+        bot.send_message(message.chat.id, "Sending...")
+        bot.send_document(message.chat.id, doc)
+        doc.close()
+        
+    except sqlite3.Error as error:
+        print("Ошибка при работе с SQLite", error)
+    finally:
+        if sqlite_connection:
+            sqlite_connection.close()
+            print("Соединение с SQLite закрыто")
 
 bot.polling(none_stop=True, timeout=123)
 
