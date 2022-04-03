@@ -172,6 +172,9 @@ def pop(message):
     data = myfile.read()
     data = data.replace("{", '~').replace("'","").replace("}","$").replace("usd","").replace(":", "")
     bot.send_message(message.chat.id, data)
+    bot.send_message(message.chat.id, "If you want to get prices"
+                                      "\nof top 100 coins"
+                                      "\n/records")
 
 
 
@@ -583,9 +586,9 @@ def get_100_coins_db(message):
 
 @bot.message_handler(commands=['graph'])
 def crypto_graph(message):
-    msg = bot.send_message(message.chat.id, "if you want to get a cryptocoin chart" 
-                                            "\nWrite coin name"
-                                            "\nFor Example" 
+    msg = bot.send_message(message.chat.id, "if you want to get a cryptocoin chart." 
+                                            "\nWrite a coin name."
+                                            "\nFor Example: " 
                                             "\nCardano"
                                             "\nBitcoin")
     bot.register_next_step_handler(msg, coin_plot)
@@ -601,7 +604,40 @@ def coin_plot(message):
                                                     'Current price {}$'.format(userCoin[0].upper() + userCoin[1:],usd))
         img.close()
     except:
-        print('I cant')
+        bot.send_message(message.chat.id, "I can't find crypto with this name"
+        "\nCheck this file"
+        "\n/list_coins"
+        "\nCorrect names of coins"
+        "\nThen, try again"
+        "\n/graph")
+
+@bot.message_handler(commands=['list_coins'])
+def list_coins(message):
+    bot.send_message(message.chat.id, 'Please, wait. I receive an information.')
+    sqlite_connection = sqlite3.connect('coins.db')
+    cursor = sqlite_connection.cursor()
+    print("Подключен к SQLite")
+    # people_id = message.chat.id
+    # ## так как people_id это форматирование, поэтому перед SELECT знак f
+    # cursor.execute(f"SELECT id FROM CUSTOMER WHERE id = {people_id}")
+    # sqlite_select_query = """SELECT cc.note_id, cc.id_customer, cc.id_coin, cc.price_coin, c.customer_name, cn.coin_name from CUSTOMER_COIN cc, CUSTOMER c, Coin cn WHERE cc.id_coin """
+    sqlite_select_query = f"""SELECT cm.id
+    FROM Coins_Markets cm"""
+    cursor.execute(sqlite_select_query)
+    text = cursor.fetchall()
+    cursor.close()
+    with open("name_coins.txt", 'w') as f:
+        for line in text:
+            line = str(line)
+            # print(line[2].upper() + line[:2])
+            line = line.replace("(", '').replace(")","").replace(",","").replace("'", "")
+            f.write(line[0].upper() + line[1:])
+            f.write('\n')
+    f.close()
+    doc = open('name_coins.txt', 'rb')
+    bot.send_message(message.chat.id, "Sending...")
+    bot.send_document(message.chat.id, doc)
+    doc.close()
 
 bot.polling(none_stop=True, timeout=123)
 

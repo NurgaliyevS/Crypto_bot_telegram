@@ -3,15 +3,8 @@ from binance.client import Client
 import os
 import settings
 
-
-
-
 api_key = os.getenv('binance_api_key')
 api_secret = os.getenv('binance_api_secret')
-
-
-
-
 
 # Authenticate with the client
 client = Client(api_key, api_secret)
