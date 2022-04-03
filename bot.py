@@ -11,7 +11,7 @@ import crypto_price
 import os
 import settings
 import pandas as pd
-from IPython.display import display
+import CurrencyPlot
 
 link = "https://t.me/yatemez"
 
@@ -495,9 +495,9 @@ def get_top_100_coins():
     df_market.to_sql(name='Coins_Markets', con=connect, if_exists='replace')
     connect.close()
 
-
 @bot.message_handler(commands=['records'])
 def get_100_coins_db(message):
+    get_top_100_coins()
     try:
         bot.send_message(message.chat.id, 'Please, wait. I receive an information.')
         sqlite_connection = sqlite3.connect('coins.db')
@@ -580,6 +580,28 @@ def get_100_coins_db(message):
         if sqlite_connection:
             sqlite_connection.close()
             print("Соединение с SQLite закрыто")
+
+@bot.message_handler(commands=['graph'])
+def crypto_graph(message):
+    msg = bot.send_message(message.chat.id, "if you want to get a cryptocoin chart" 
+                                            "\nWrite coin name"
+                                            "\nFor Example" 
+                                            "\nCardano"
+                                            "\nBitcoin")
+    bot.register_next_step_handler(msg, coin_plot)
+
+def coin_plot(message):
+    try:
+        userCoin = message.text
+        userCoin = userCoin.lower()
+        CurrencyPlot.paint_plot('{}'.format(userCoin))
+        usd = cg.get_price(ids='{}'.format(userCoin), vs_currencies='usd')['{}'.format(userCoin)]['usd']
+        img = open('foo.png', 'rb')
+        bot.send_photo(message.chat.id, img, caption='Price of the last 7 days of {}\n'
+                                                    'Current price {}$'.format(userCoin[0].upper() + userCoin[1:],usd))
+        img.close()
+    except:
+        print('I cant')
 
 bot.polling(none_stop=True, timeout=123)
 
