@@ -7,9 +7,9 @@ import datetime
 
 reformatted_data = dict()
 
-def paint_plot(id_of_cur):
+def paint_plot(id_of_cur, days):
 
-    currency = CoinGeckoAPI().get_coin_ohlc_by_id(id=id_of_cur, vs_currency='usd', days=7)
+    currency = CoinGeckoAPI().get_coin_ohlc_by_id(id=id_of_cur, vs_currency='usd', days=days)
 
     reformatted_data['Date'] = []
     reformatted_data['Open'] = []

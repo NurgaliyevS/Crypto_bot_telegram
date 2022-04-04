@@ -176,17 +176,13 @@ def pop(message):
                                       "\nof top 100 coins"
                                       "\n/records")
 
-
-
 @bot.message_handler(commands=['status'])
 def bot_message(message):
 	bot.send_message(message.chat.id, "I'm working" )
 
-
 @bot.message_handler(commands=['creator'])
 def callbacks(message):
     bot.send_message(message.chat.id, "Write a message to the creator of the bot: \n{link}!".format(link=link))
-
 
 def help_crypto_list_with_price(message):
     msg = bot.send_message(message.chat.id, "Please, wait. I receive an information.")
@@ -589,19 +585,25 @@ def crypto_graph(message):
     msg = bot.send_message(message.chat.id, "if you want to get a cryptocoin chart." 
                                             "\nWrite a coin name."
                                             "\nFor Example: " 
-                                            "\nCardano"
-                                            "\nBitcoin")
+                                            "\nCardano 1"
+                                            "\nBitcoin 365"
+                                            "\nSecond paramets is days"
+                                            "\nOnly supported 1, 7, 30, 90, 365")
     bot.register_next_step_handler(msg, coin_plot)
 
 def coin_plot(message):
     try:
         userCoin = message.text
         userCoin = userCoin.lower()
-        CurrencyPlot.paint_plot('{}'.format(userCoin))
-        usd = cg.get_price(ids='{}'.format(userCoin), vs_currencies='usd')['{}'.format(userCoin)]['usd']
+        userCoin = userCoin.split()
+        print(userCoin)
+        print(userCoin[0])
+        print(userCoin[1])
+        CurrencyPlot.paint_plot(userCoin[0], int(userCoin[1]))
+        usd = cg.get_price(ids='{}'.format(userCoin[0]), vs_currencies='usd')['{}'.format(userCoin[0])]['usd']
         img = open('foo.png', 'rb')
-        bot.send_photo(message.chat.id, img, caption='Price of the last 7 days of {}\n'
-                                                    'Current price {}$'.format(userCoin[0].upper() + userCoin[1:],usd))
+        bot.send_photo(message.chat.id, img, caption='Price of the last {} days of {}\n'
+                                                    'Current price {}$'.format(userCoin[1],userCoin[0][0].upper() + userCoin[0][1:], usd))
         img.close()
     except:
         bot.send_message(message.chat.id, "I can't find crypto with this name"
@@ -638,6 +640,44 @@ def list_coins(message):
     bot.send_message(message.chat.id, "Sending...")
     bot.send_document(message.chat.id, doc)
     doc.close()
+
+@bot.message_handler(commands=['find'])
+def crypto_handler(message):
+    msg = bot.send_message(message.chat.id, "if you want to find information on a specific crypto." 
+                                            "\nWrite the name of the coin."
+                                            "\nExample: Bitcoin.")
+    bot.register_next_step_handler(msg, find_crypto)
+
+def find_crypto(message):
+    try:
+        get_top_100_coins()
+        user_coin = message.text
+        user_coin = user_coin.lower()
+        # coin_plot(user_coin.user_coin)
+        print(user_coin)
+        sqlite_connection = sqlite3.connect('coins.db')
+        cursor = sqlite_connection.cursor()
+        print("Подключен к SQLite")
+        cursor.execute("SELECT cm.market_cap_rank,cm.id, cm.name, cm.current_price, cm.price_change_24h, cm.price_change_percentage_24h, cm.market_cap, cm.market_cap_change_percentage_24h,cm.total_volume, cm.circulating_supply, cm.max_supply, cm.high_24h, cm.low_24h FROM Coins_Markets cm WHERE cm.id = ?", (user_coin,))
+        data = cursor.fetchone()
+        user = []
+        print(data)
+        print('hey', data[10])
+        for i in data:
+            user.append(i)
+        if user[10] is None:
+            user[10] = 0
+        sqlite_connection.commit()
+        cursor.close()
+        result = 'Market Cap Rank: {} \nName: {} \nPrice: {}$ \nPrice Change 24h: {}$ \nPrice Change 24h: {}% \nMarket Cap: {:,} \nMarket Cap 24h: {}% \nTotal Volume: {:,} \nCirculating Supply: {:,} \nMax suply: {:,} \nLow Price 24h: {}$ \nHigh price 24h: {}$'.format(user[0], user[2], user[3], user[4], user[5], user[6], user[7], user[8], user[9], user[10], user[12], user[11])
+        bot.send_message(message.chat.id, result)
+    except:
+        bot.send_message(message.chat.id, "I can't find crypto with this name"
+        "\nCheck this file"
+        "\n/list_coins"
+        "\nCorrect names of coins"
+        "\nThen, try again"
+        "\n/find")
 
 bot.polling(none_stop=True, timeout=123)
 
