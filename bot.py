@@ -22,18 +22,6 @@ cg = CoinGeckoAPI()
 
 link = "https://t.me/yatemez"
 
-@bot.message_handler(commands=['btc'])
-def bitcoin(message):
-	price = cg.get_price(ids='bitcoin', vs_currencies='usd')
-	bot.send_message(message.chat.id, f'Bitcoin  {price["bitcoin"]["usd"] }$')
-
-
-@bot.message_handler(commands=['eth'])
-def ethereum(message):
-	price = cg.get_price(ids='ethereum', vs_currencies='usd')
-	bot.send_message(message.chat.id, f'Ethereum  {price["ethereum"]["usd"] }$')
-
-
 @bot.message_handler(commands=['help'])
 def help(message):
     bot.send_message(message.chat.id, """\
@@ -73,7 +61,6 @@ If you want to set alerts on coins that are not in the list,
 write to the creator, I will try to add them.
 /creator
 """)
-
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -124,18 +111,6 @@ Just type or click on commands:
 /creator - Write to the creator
 """.format(message.from_user, bot.get_me()))
 
-
-@bot.message_handler(commands=['doge'])
-def ethereum(message):
-	price = cg.get_price(ids='dogecoin', vs_currencies='usd')
-	bot.send_message(message.chat.id, f'Doge  {price["dogecoin"]["usd"] }$')
-
-
-@bot.message_handler(commands=['ltc'])
-def ethereum(message):
-	price = cg.get_price(ids='litecoin', vs_currencies='usd')
-	bot.send_message(message.chat.id, f'Litecoin  {price["litecoin"]["usd"] }$')
-
 def collect_data():
     s = requests.Session()
     response = s.get(url="https://api.coingecko.com/api/v3/simple/price?ids=bitcoin%2Cftx-token%2Ccardano%2Cthe-graph%2Cnear%2Cpolkadot%2Cavalanche-2%2Cdogecoin%2Cethereum%2Cterra-luna%2Clitecoin%2Cmatic-network%2Csolana%2Cbinancecoin%2Cuniswap&vs_currencies=usd")
@@ -173,8 +148,10 @@ def pop(message):
     data = data.replace("{", '~').replace("'","").replace("}","$").replace("usd","").replace(":", "")
     bot.send_message(message.chat.id, data)
     bot.send_message(message.chat.id, "If you want to get prices"
-                                      "\nof top 100 coins"
-                                      "\n/records")
+                                      "\nof top 250 coins"
+                                      "\n/records"
+                                      "\nInformation for a certain cryptocurrency"
+                                      "\n/find")
 
 @bot.message_handler(commands=['status'])
 def bot_message(message):
@@ -184,54 +161,15 @@ def bot_message(message):
 def callbacks(message):
     bot.send_message(message.chat.id, "Write a message to the creator of the bot: \n{link}!".format(link=link))
 
-
-def help_crypto_list(message):
-    # msg = bot.send_message(message.chat.id, "Please, wait. I receive an information.")
-    bot.send_message(message.chat.id, f"""\
-You can only set alerts for these coins:
-
-Bitcoin 
-
-Ethereum 
-
-Binancecoin 
-
-Litecoin 
-
-Solana
-
-Avalanche-2 
-
-Terra-luna
-
-FTX-Token 
-
-Polkadot 
-
-Uniswap 
-
-NEAR 
-
-Matic-network 
-
-Cardano 
-
-The-Graph 
-
-Dogecoin 
-""")
-
-
 @bot.message_handler(commands=['alert'])
 def alert (message):
     #### /alert
     #### пользователь вводит сначала команду alert
-    # help_crypto_list(message)
     msg = bot.send_message(message.chat.id, "To set an alert."
                                         "\n"
                                       "\nWrite the name of the"
                                       "\ncryptocurrency and the price."
-                                      "\n"
+                                      "\nYou can put alerts on the top 250 coins."
                                       "\nExample: "
                                       "\nBitcoin 50000"
                                             "\n"
@@ -240,9 +178,6 @@ def alert (message):
     bot.register_next_step_handler(msg, add_record_db)
 
 def add_record_db(message):
-    #### ПОТОМ ЧЕЛОВЕК ПИШЕТ ОТДЕЛЬНО В ЧАТЕ
-    #### НАПРИМЕР
-    #### BITCOIN 25000
     if message.text == "/start":
         return start(message)
     user_coin = message.text
@@ -255,7 +190,6 @@ def add_record_db(message):
             connect = sqlite3.connect('coins.db')
             cursor = connect.cursor()
             cursor.execute("SELECT cm.id, cm.market_cap_rank ,lower(cm.name), cm.current_price FROM Coins_Markets cm WHERE lower(cm.name) = '{}' or cm.id = '{}'".format(user_coin[0], user_coin[0]))
-            ## в переменной data = выводит поле id, coin_name. Пользователя, который написал команду /alert
             data = cursor.fetchone()
             user = []
             for i in data:
@@ -271,7 +205,6 @@ def add_record_db(message):
                 user_up_or_down_price = 0
             connect = sqlite3.connect('customer.db')
             cursor = connect.cursor()
-            # connect DB and create table
             customer_coin = [message.chat.id, user[1], price, user_up_or_down_price, 0]
             cursor.execute("INSERT INTO CUSTOMER_COIN (note_id, id_customer, id_coin, price_coin, up_or_down_price, notified_or_not) VALUES(NULL, ?,?, ?, ?, ?);", customer_coin)
             connect.commit()
@@ -432,13 +365,6 @@ def delete_record_from_db(message):
     except:
         msg = bot.send_message(message.chat.id, "Try another one: ")
         bot.register_next_step_handler(msg, delete_record_from_db)
-
-def get_top_100_coins():
-    coin_market = cg.get_coins_markets(vs_currency='usd')
-    df_market = pd.DataFrame(coin_market, columns=['market_cap_rank','id','name','current_price',"price_change_24h","price_change_percentage_24h",'market_cap',"market_cap_change_percentage_24h",'total_volume',  "circulating_supply", "max_supply", "high_24h", "low_24h", ])   
-    connect = sqlite3.connect('coins.db')
-    df_market.to_sql(name='Coins_Markets', con=connect, if_exists='replace')
-    connect.close()
 
 @bot.message_handler(commands=['records'])
 def get_100_coins_db(message):
@@ -609,6 +535,8 @@ def find_crypto(message):
         cursor.close()
         result = 'Market Cap Rank: {} \nName: {} \nPrice: {}$ \nPrice Change 24h: {}$ \nPrice Change 24h: {}% \nMarket Cap: {:,} \nMarket Cap 24h: {}% \nTotal Volume: {:,} \nCirculating Supply: {:,} \nMax suply: {:,} \nLow Price 24h: {}$ \nHigh price 24h: {}$'.format(user[0], user[2].capitalize(), user[3], user[4], user[5], user[6], user[7], user[8], user[9], user[10], user[12], user[11])
         bot.send_message(message.chat.id, result)
+        msg = bot.send_message(message.chat.id, 'Do you want to get graphs?')
+        bot.register_next_step_handler(msg, crypto_graph)
     except:
         bot.send_message(message.chat.id, "I can't find crypto with this name"
         "\nCheck this file"
@@ -616,8 +544,6 @@ def find_crypto(message):
         "\nCorrect names of coins"
         "\nThen, try again"
         "\n/find")
-
-
 
 bot.polling(none_stop=True, timeout=123)
 
