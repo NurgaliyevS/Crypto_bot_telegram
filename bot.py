@@ -184,42 +184,6 @@ def bot_message(message):
 def callbacks(message):
     bot.send_message(message.chat.id, "Write a message to the creator of the bot: \n{link}!".format(link=link))
 
-def help_crypto_list_with_price(message):
-    msg = bot.send_message(message.chat.id, "Please, wait. I receive an information.")
-    bot.send_message(message.chat.id, f"""\
-You can only set alerts for these coins:
-
-Bitcoin {crypto_price.check_btc_price()}$
-
-Ethereum {crypto_price.check_eth_price()}$
-
-Binancecoin {crypto_price.check_bnb_price()}$
-
-Litecoin {crypto_price.check_litecoin_price()}
-
-Solana {crypto_price.check_solana_price()}$
-
-Avalanche-2 {crypto_price.check_avalanche_price()}$
-
-Terra-luna {crypto_price.check_terra_luna_price()}$
-
-FTX-Token {crypto_price.check_ftx_token_price()}$
-
-Polkadot {crypto_price.check_polkadot_price()}$
-
-Uniswap {crypto_price.check_uniswap_price()}$
-
-NEAR {crypto_price.check_near_price()}$
-
-Matic-network {crypto_price.check_polygon_price()}$
-
-Cardano {crypto_price.check_ada_price()}$
- 
-The-Graph {crypto_price.check_the_graph_price()}$
-
-Dogecoin {crypto_price.check_dogecoin_price()}$
-""")
-
 
 def help_crypto_list(message):
     # msg = bot.send_message(message.chat.id, "Please, wait. I receive an information.")
@@ -262,7 +226,7 @@ Dogecoin
 def alert (message):
     #### /alert
     #### пользователь вводит сначала команду alert
-    help_crypto_list(message)
+    # help_crypto_list(message)
     msg = bot.send_message(message.chat.id, "To set an alert."
                                         "\n"
                                       "\nWrite the name of the"
@@ -281,45 +245,39 @@ def add_record_db(message):
     #### BITCOIN 25000
     if message.text == "/start":
         return start(message)
-
-    crypto_coin = ['bitcoin', 'ethereum', 'binancecoin',
-     'litecoin', 'solana', 'avalanche-2',
-     'terra-luna', 'ftx-token',
-     'polkadot', 'near', 'uniswap',
-     'matic-network', 'cardano',
-     'the-graph', 'dogecoin']
     user_coin = message.text
     user_coin = user_coin.lower()
     user_coin = user_coin.split()
+    crypto_coin = list_coins_2()
     try:
         coin, price = user_coin[0], user_coin[1]
         if user_coin[1].isdigit() or float(user_coin[1]) and user_coin[0] in crypto_coin:
-            print('yes')
-            connect = sqlite3.connect('customer.db')
+            connect = sqlite3.connect('coins.db')
             cursor = connect.cursor()
-            ## так как people_id это форматирование, поэтому перед SELECT знак f
-            cursor.execute("SELECT id, coin_name FROM COIN WHERE coin_name = ?", (coin,))
+            cursor.execute("SELECT cm.id, cm.market_cap_rank ,lower(cm.name), cm.current_price FROM Coins_Markets cm WHERE lower(cm.name) = '{}' or cm.id = '{}'".format(user_coin[0], user_coin[0]))
             ## в переменной data = выводит поле id, coin_name. Пользователя, который написал команду /alert
             data = cursor.fetchone()
             user = []
             for i in data:
                 user.append(i)
             connect.commit()
+            connect.close()
             user_up_or_down_price = int()
             user[1] = str(user[1])
             user_coin[1] = float(user_coin[1])
-            if user_coin[1] >= crypto_price.check_price(user[1]):
+            if user_coin[1] >= crypto_price.check_crypto_price(user[2]):
                 user_up_or_down_price = 1
             else:
                 user_up_or_down_price = 0
             connect = sqlite3.connect('customer.db')
             cursor = connect.cursor()
             # connect DB and create table
-            customer_coin = [message.chat.id, user[0], price, user_up_or_down_price, 0]
-            cursor.execute("INSERT INTO CUSTOMER_COIN (note_id, id_customer, id_coin, price_coin, up_or_down_price, notified_or_not) VALUES(NULL,?,?, ?, ?, ?);", customer_coin)
+            customer_coin = [message.chat.id, user[1], price, user_up_or_down_price, 0]
+            cursor.execute("INSERT INTO CUSTOMER_COIN (note_id, id_customer, id_coin, price_coin, up_or_down_price, notified_or_not) VALUES(NULL, ?,?, ?, ?, ?);", customer_coin)
             connect.commit()
-            bot.send_message(message.chat.id, "Ваша монета найдена."
-                                                            f"\n{coin.upper()[0] + coin[1:-1] + coin[-1]}. \nСтавим оповещение.")
+            bot.send_message(message.chat.id, "Your cryptocurrency has been found."
+                                                            f"\n{coin.upper()[0] + coin[1:]}. \nMade record to the database."
+                                                            "\nYou will receive an alert when your price matches the current one.")
             make_a_new_alert(message)
         else:
             msg = bot.send_message(message.chat.id, "I don't get it"
@@ -327,7 +285,6 @@ def add_record_db(message):
                                                     "\nExample:"
                                                     "\nBitcoin 50000")
             bot.register_next_step_handler(msg, add_record_db)
-
     except:
         msg = bot.send_message(message.chat.id, "I don't get it."
                                                 "\nTry again, please."
@@ -335,13 +292,27 @@ def add_record_db(message):
                                                 "\nBitcoin 50000.")
         bot.register_next_step_handler(msg, add_record_db)
 
+
+def list_coins_2():
+    sqlite_connection = sqlite3.connect('coins.db')
+    cursor = sqlite_connection.cursor()
+    print("Подключен к SQLite")
+    sqlite_select_query = f"""SELECT cm.id, cm.name
+    FROM Coins_Markets cm"""
+    cursor.execute(sqlite_select_query)
+    text = cursor.fetchall()
+    cursor.close()
+    text = str(text)
+    result = text.replace("[", "").replace("(", "").replace("'","").replace(",","").replace(")","\n").replace("]","")
+    return result
+
 def make_a_new_alert(message):
     bot.send_message(message.chat.id, "Do you want to continue?"
                                             "\n/alert"
                                             "\nIf you want to exit?"
                                             "\n/start")
 
-@bot.message_handler(commands=['create_db'])
+# @bot.message_handler(commands=['create_db'])
 def create_db(message):
     connect = sqlite3.connect('customer.db')
     cursor = connect.cursor()
@@ -357,7 +328,8 @@ def create_db(message):
                             )""")
     cursor.execute("""CREATE TABLE IF NOT EXISTS COIN (
                             id INTEGER PRIMARY KEY,
-                            coin_name VARCHAR (40)
+                            coin_name VARCHAR (65),
+                            coin_market_id VARCHAR(65)
                             )""")
     cursor.execute("""CREATE TABLE IF NOT EXISTS CUSTOMER_COIN (
                             note_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -372,49 +344,23 @@ def create_db(message):
     connect.commit()
     bot.send_message(message.chat.id, "You database has been created.")
 
-@bot.message_handler(commands=['constant_db'])
+# @bot.message_handler(commands=['constant_db'])
 def constant_db(message):
+    connect = sqlite3.connect('coins.db')
+    cursor = connect.cursor()
+    data = cursor.execute("SELECT cm.market_cap_rank, lower(cm.name), cm.id FROM Coins_Markets cm")
+    allCoins = []
+    for value in data:
+        allCoins.append(value)
+    cursor.close()
+    # print(allCoins)
     connect = sqlite3.connect('customer.db')
     cursor = connect.cursor()
-    cursor.executescript("INSERT INTO SGROUP (id, group_name) VALUES(1488, 'free');"
-                    "INSERT INTO SGROUP (id, group_name) VALUES(1337, 'paid');")
-    cursor.executescript("INSERT INTO COIN (id, coin_name) VALUES(1, 'bitcoin');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(2, 'ethereum');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(3, 'binancecoin');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(4, 'litecoin');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(5, 'solana');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(6, 'avalanche');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(7, 'terra-luna');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(8, 'ftx-token');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(9, 'polkadot');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(10, 'uniswap');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(11, 'near');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(12, 'matic-network');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(13, 'cardano');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(14, 'the-graph');"
-                   "INSERT INTO COIN (id, coin_name) VALUES(15, 'dogecoin');")
-    connect.commit()
-    bot.send_message(message.chat.id, "You constants has been added to database.")
-
-@bot.message_handler(commands=['upd_constant_db'])
-def update_constant_db(message):
-    connect = sqlite3.connect('customer.db')
-    cursor = connect.cursor()
-    cursor.execute("""UPDATE COIN SET id = 16, coin_name = Fantom
-    """)
-    connect.commit()
-    cursor.close
-    connect.close()
-    bot.send_message(message.chat.id, "You constants has been updated to database.")
-
-@bot.message_handler(commands=['new_constant_db'])
-def new_constant_db(message):
-    connect = sqlite3.connect('customer.db')
-    cursor = connect.cursor()
-    cursor.execute("INSERT INTO COIN (id, coin_name) VALUES (16, 'Fantom')")
-    connect.commit()
-    cursor.close
-    connect.close()
+    user = []
+    for i in range(len(allCoins)):
+        cursor.execute("INSERT INTO COIN (id, coin_name, coin_market_id) VALUES(?,?, ?);", allCoins[i])
+        connect.commit()
+    cursor.close()
     bot.send_message(message.chat.id, "You constants has been added to database.")
 
 #### ЧТЕНИЕ ВСЕГО ЧТО ЕСТЬ В БАЗЕ ДАННЫХ
@@ -496,16 +442,12 @@ def get_top_100_coins():
 
 @bot.message_handler(commands=['records'])
 def get_100_coins_db(message):
-    get_top_100_coins()
+    crypto_price.get_top_250_coins()
     try:
         bot.send_message(message.chat.id, 'Please, wait. I receive an information.')
         sqlite_connection = sqlite3.connect('coins.db')
         cursor = sqlite_connection.cursor()
         print("Подключен к SQLite")
-        # people_id = message.chat.id
-        # ## так как people_id это форматирование, поэтому перед SELECT знак f
-        # cursor.execute(f"SELECT id FROM CUSTOMER WHERE id = {people_id}")
-        # sqlite_select_query = """SELECT cc.note_id, cc.id_customer, cc.id_coin, cc.price_coin, c.customer_name, cn.coin_name from CUSTOMER_COIN cc, CUSTOMER c, Coin cn WHERE cc.id_coin """
         sqlite_select_query = f"""SELECT cm.market_cap_rank, cm.name, cm.current_price, cm.price_change_24h, cm.price_change_percentage_24h, cm.market_cap, cm.market_cap_change_percentage_24h, cm.max_supply, cm.circulating_supply, cm.high_24h, cm.low_24h
         FROM Coins_Markets cm"""
         cursor.execute(sqlite_select_query)
@@ -619,10 +561,6 @@ def list_coins(message):
     sqlite_connection = sqlite3.connect('coins.db')
     cursor = sqlite_connection.cursor()
     print("Подключен к SQLite")
-    # people_id = message.chat.id
-    # ## так как people_id это форматирование, поэтому перед SELECT знак f
-    # cursor.execute(f"SELECT id FROM CUSTOMER WHERE id = {people_id}")
-    # sqlite_select_query = """SELECT cc.note_id, cc.id_customer, cc.id_coin, cc.price_coin, c.customer_name, cn.coin_name from CUSTOMER_COIN cc, CUSTOMER c, Coin cn WHERE cc.id_coin """
     sqlite_select_query = f"""SELECT cm.id
     FROM Coins_Markets cm"""
     cursor.execute(sqlite_select_query)
@@ -650,7 +588,7 @@ def crypto_handler(message):
 
 def find_crypto(message):
     try:
-        get_top_100_coins()
+        crypto_price.get_top_250_coins()
         user_coin = message.text
         user_coin = user_coin.lower()
         # coin_plot(user_coin.user_coin)
@@ -658,7 +596,7 @@ def find_crypto(message):
         sqlite_connection = sqlite3.connect('coins.db')
         cursor = sqlite_connection.cursor()
         print("Подключен к SQLite")
-        cursor.execute("SELECT cm.market_cap_rank,cm.id, cm.name, cm.current_price, cm.price_change_24h, cm.price_change_percentage_24h, cm.market_cap, cm.market_cap_change_percentage_24h,cm.total_volume, cm.circulating_supply, cm.max_supply, cm.high_24h, cm.low_24h FROM Coins_Markets cm WHERE cm.id = ?", (user_coin,))
+        cursor.execute("SELECT cm.market_cap_rank,cm.id, lower(cm.name), cm.current_price, cm.price_change_24h, cm.price_change_percentage_24h, cm.market_cap, cm.market_cap_change_percentage_24h,cm.total_volume, cm.circulating_supply, cm.max_supply, cm.high_24h, cm.low_24h FROM Coins_Markets cm WHERE lower(cm.name) = '{}' or cm.id = '{}'".format(user_coin, user_coin))
         data = cursor.fetchone()
         user = []
         print(data)
@@ -669,7 +607,7 @@ def find_crypto(message):
             user[10] = 0
         sqlite_connection.commit()
         cursor.close()
-        result = 'Market Cap Rank: {} \nName: {} \nPrice: {}$ \nPrice Change 24h: {}$ \nPrice Change 24h: {}% \nMarket Cap: {:,} \nMarket Cap 24h: {}% \nTotal Volume: {:,} \nCirculating Supply: {:,} \nMax suply: {:,} \nLow Price 24h: {}$ \nHigh price 24h: {}$'.format(user[0], user[2], user[3], user[4], user[5], user[6], user[7], user[8], user[9], user[10], user[12], user[11])
+        result = 'Market Cap Rank: {} \nName: {} \nPrice: {}$ \nPrice Change 24h: {}$ \nPrice Change 24h: {}% \nMarket Cap: {:,} \nMarket Cap 24h: {}% \nTotal Volume: {:,} \nCirculating Supply: {:,} \nMax suply: {:,} \nLow Price 24h: {}$ \nHigh price 24h: {}$'.format(user[0], user[2].capitalize(), user[3], user[4], user[5], user[6], user[7], user[8], user[9], user[10], user[12], user[11])
         bot.send_message(message.chat.id, result)
     except:
         bot.send_message(message.chat.id, "I can't find crypto with this name"
@@ -678,6 +616,8 @@ def find_crypto(message):
         "\nCorrect names of coins"
         "\nThen, try again"
         "\n/find")
+
+
 
 bot.polling(none_stop=True, timeout=123)
 
