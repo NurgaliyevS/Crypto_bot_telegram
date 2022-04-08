@@ -25,41 +25,17 @@ link = "https://t.me/yatemez"
 @bot.message_handler(commands=['help'])
 def help(message):
     bot.send_message(message.chat.id, """\
-You can only set alerts for these coins:
+You can set alert for 250 top coins. 
+/alert
 
-Bitcoin
+To find information for certain cryptocurrency write. 
+/find
 
-Ethereum
+To get graph for specific coin write.
+/graph
 
-Binancecoin
+/creator - Write to the creator if you find a bug.
 
-Litecoin
-
-Solana
-
-Avalanche-2
-
-Terra-luna
-
-FTX-Token
-
-Polkadot
-
-Uniswap
-
-NEAR
-
-Matic-network
-
-Cardano
-
-The-Graph
-
-Dogecoin
-
-If you want to set alerts on coins that are not in the list, 
-write to the creator, I will try to add them.
-/creator
 """)
 
 @bot.message_handler(commands=['start'])
@@ -82,7 +58,6 @@ def start(message):
         customer_list = [message.chat.id, 1488, username]
         cursor.execute("INSERT INTO CUSTOMER (id, id_group, customer_name) VALUES(?, ?, ?);", customer_list)
         connect.commit()
-        bot.send_message(message.chat.id, "You have been added into database.".format(message.from_user, bot.get_me()))
     bot.send_message(message.chat.id, """\
 Hi there, {0.first_name}, I am Alexa bot v3.
 I am here to help you! I can send you crypto price.
@@ -92,21 +67,19 @@ Just type or click on commands:
 
 /help - Need help? 
 
-/main - Get Current price of the cryptocurrency
+/main - Get сurrent prices for my favorite cryptocurrencies
+
+/find - Get information for specific cryptocurrency
 
 /alert - Сreate a cryptocurrency notification
 
+/graph - Get graph for specific cryptocurrency
+
 /record - Get a list of created records
 
-/delete - Delete notification
+/delete - Delete record from database
 
-/btc - Get Bitcoin price
-
-/eth - Get Ethereum price
-
-/doge - Get Dogecoin price
-
-/ltc - Get Litecoin price
+/records - Get information of 250 cryptocurrencies in txt file
 
 /creator - Write to the creator
 """.format(message.from_user, bot.get_me()))
@@ -141,7 +114,7 @@ def collect_data():
 @bot.message_handler(commands=['main'])
 def pop(message):
     bot.send_message(message.chat.id, 'Please, wait. I receive an information.')
-    time.sleep(10)
+    time.sleep(3)
     collect_data()
     myfile = open('crypto_list_price.txt', 'r')
     data = myfile.read()
@@ -225,7 +198,6 @@ def add_record_db(message):
                                                 "\nBitcoin 50000.")
         bot.register_next_step_handler(msg, add_record_db)
 
-
 def list_coins_2():
     sqlite_connection = sqlite3.connect('coins.db')
     cursor = sqlite_connection.cursor()
@@ -302,7 +274,7 @@ def constant_db(message):
 def read_sqlite_table(message):
     try:
         bot.send_message(message.chat.id, 'Please, wait. I receive an information.')
-        time.sleep(10)
+        time.sleep(3)
         sqlite_connection = sqlite3.connect('customer.db')
         cursor = sqlite_connection.cursor()
         print("Подключен к SQLite")
@@ -451,12 +423,13 @@ def get_100_coins_db(message):
 @bot.message_handler(commands=['graph'])
 def crypto_graph(message):
     msg = bot.send_message(message.chat.id, "if you want to get a cryptocoin chart." 
-                                            "\nWrite a coin name."
+                                            "\nWrite a coin name and days."
                                             "\nFor Example: " 
                                             "\nCardano 1"
                                             "\nBitcoin 365"
                                             "\nSecond paramets is days"
-                                            "\nOnly supported 1, 7, 30, 90, 365")
+                                            "\nOnly supported 1, 7, 14, 30, 90, 180, 365"
+                                            )
     bot.register_next_step_handler(msg, coin_plot)
 
 def coin_plot(message):
@@ -467,12 +440,20 @@ def coin_plot(message):
         print(userCoin)
         print(userCoin[0])
         print(userCoin[1])
-        CurrencyPlot.paint_plot(userCoin[0], int(userCoin[1]))
-        usd = cg.get_price(ids='{}'.format(userCoin[0]), vs_currencies='usd')['{}'.format(userCoin[0])]['usd']
-        img = open('foo.png', 'rb')
-        bot.send_photo(message.chat.id, img, caption='Price of the last {} days of {}\n'
-                                                    'Current price {}$'.format(userCoin[1],userCoin[0][0].upper() + userCoin[0][1:], usd))
-        img.close()
+        if int(userCoin[1]) == 1:
+            CurrencyPlot.paint_plot(userCoin[0], int(userCoin[1]))
+            usd = cg.get_price(ids='{}'.format(userCoin[0]), vs_currencies='usd')['{}'.format(userCoin[0])]['usd']
+            img = open('foo.png', 'rb')
+            bot.send_photo(message.chat.id, img, caption='Price of the last {} day of {}\n'
+                                                        'Current price {}$'.format(userCoin[1],userCoin[0][0].upper() + userCoin[0][1:], usd))
+            img.close()
+        else:
+            CurrencyPlot.paint_plot(userCoin[0], int(userCoin[1]))
+            usd = cg.get_price(ids='{}'.format(userCoin[0]), vs_currencies='usd')['{}'.format(userCoin[0])]['usd']
+            img = open('foo.png', 'rb')
+            bot.send_photo(message.chat.id, img, caption='Price of the last {} days of {}\n'
+                                                        'Current price {}$'.format(userCoin[1],userCoin[0][0].upper() + userCoin[0][1:], usd))
+            img.close()
     except:
         bot.send_message(message.chat.id, "I can't find crypto with this name"
         "\nCheck this file"
@@ -535,8 +516,12 @@ def find_crypto(message):
         cursor.close()
         result = 'Market Cap Rank: {} \nName: {} \nPrice: {}$ \nPrice Change 24h: {}$ \nPrice Change 24h: {}% \nMarket Cap: {:,} \nMarket Cap 24h: {}% \nTotal Volume: {:,} \nCirculating Supply: {:,} \nMax suply: {:,} \nLow Price 24h: {}$ \nHigh price 24h: {}$'.format(user[0], user[2].capitalize(), user[3], user[4], user[5], user[6], user[7], user[8], user[9], user[10], user[12], user[11])
         bot.send_message(message.chat.id, result)
-        msg = bot.send_message(message.chat.id, 'Do you want to get graphs?')
-        bot.register_next_step_handler(msg, crypto_graph)
+        CurrencyPlot.paint_plot(user_coin, 1)
+        usd = cg.get_price(ids='{}'.format(user_coin), vs_currencies='usd')['{}'.format(user_coin)]['usd']
+        img = open('foo.png', 'rb')
+        bot.send_photo(message.chat.id, img, caption='Price of the last {} day of {}\n'
+                                                    'Current price {}$'.format(1,user_coin[0][0].upper() + user_coin[1:], usd))
+
     except:
         bot.send_message(message.chat.id, "I can't find crypto with this name"
         "\nCheck this file"
