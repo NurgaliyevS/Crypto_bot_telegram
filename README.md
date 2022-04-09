@@ -14,23 +14,14 @@
 ### Supported commands: ###
 ```
 /start - Let's start!
-
 /help - Need help? 
-
 /main - Get сurrent prices for my favorite cryptocurrencies
-
 /find - Get information for specific cryptocurrency
-
 /alert - Сreate a cryptocurrency notification
-
 /graph - Get graph for specific cryptocurrency
-
 /record - Get a list of created records
-
 /delete - Delete record from database
-
 /records - Get information of 250 cryptocurrencies in txt file
-
 /creator - Write to the creator
 ```
 
