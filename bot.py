@@ -440,16 +440,18 @@ def coin_plot(message):
         print(userCoin)
         print(userCoin[0])
         print(userCoin[1])
+        result = CurrencyPlot.get_exact_value_json(userCoin[0])
         if int(userCoin[1]) == 1:
             CurrencyPlot.paint_plot(userCoin[0], int(userCoin[1]))
-            usd = cg.get_price(ids='{}'.format(userCoin[0]), vs_currencies='usd')['{}'.format(userCoin[0])]['usd']
+            print('hello')
+            usd = cg.get_price(ids='{}'.format(result), vs_currencies='usd')['{}'.format(result)]['usd']
             img = open('foo.png', 'rb')
             bot.send_photo(message.chat.id, img, caption='Price of the last {} day of {}\n'
                                                         'Current price {}$'.format(userCoin[1],userCoin[0][0].upper() + userCoin[0][1:], usd))
             img.close()
         else:
-            CurrencyPlot.paint_plot(userCoin[0], int(userCoin[1]))
-            usd = cg.get_price(ids='{}'.format(userCoin[0]), vs_currencies='usd')['{}'.format(userCoin[0])]['usd']
+            CurrencyPlot.paint_plot(result, int(userCoin[1]))
+            usd = cg.get_price(ids='{}'.format(result), vs_currencies='usd')['{}'.format(result)]['usd']
             img = open('foo.png', 'rb')
             bot.send_photo(message.chat.id, img, caption='Price of the last {} days of {}\n'
                                                         'Current price {}$'.format(userCoin[1],userCoin[0][0].upper() + userCoin[0][1:], usd))
@@ -516,11 +518,14 @@ def find_crypto(message):
         cursor.close()
         result = 'Market Cap Rank: {} \nName: {} \nPrice: {}$ \nPrice Change 24h: {}$ \nPrice Change 24h: {}% \nMarket Cap: {:,} \nMarket Cap 24h: {}% \nTotal Volume: {:,} \nCirculating Supply: {:,} \nMax suply: {:,} \nLow Price 24h: {}$ \nHigh price 24h: {}$'.format(user[0], user[2].capitalize(), user[3], user[4], user[5], user[6], user[7], user[8], user[9], user[10], user[12], user[11])
         bot.send_message(message.chat.id, result)
+        result = CurrencyPlot.get_exact_value_json(user_coin)
         CurrencyPlot.paint_plot(user_coin, 1)
-        usd = cg.get_price(ids='{}'.format(user_coin), vs_currencies='usd')['{}'.format(user_coin)]['usd']
+        print('hello')
+        usd = cg.get_price(ids='{}'.format(result), vs_currencies='usd')['{}'.format(result)]['usd']
         img = open('foo.png', 'rb')
         bot.send_photo(message.chat.id, img, caption='Price of the last {} day of {}\n'
-                                                    'Current price {}$'.format(1,user_coin[0][0].upper() + user_coin[1:], usd))
+                                                    'Current price {}$'.format(1,result[0].upper() + result[1:], usd))
+        img.close()
 
     except:
         bot.send_message(message.chat.id, "I can't find crypto with this name"
