@@ -5,9 +5,7 @@ from matplotlib.pyplot import savefig
 from pycoingecko import CoinGeckoAPI
 import datetime
 import sqlite3
-from urllib.request import urlopen
 import json
-from urllib.request import Request, urlopen
 
 reformatted_data = dict()
 

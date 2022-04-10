@@ -1,7 +1,7 @@
 import requests
 from binance.client import Client
 import os
-import settings
+import account_setings
 import sqlite3
 import pandas as pd
 from pycoingecko import CoinGeckoAPI

@@ -3,9 +3,7 @@ import time
 import sqlite3
 import crypto_price
 import os
-import settings
-
-
+import account_setings
 
 bot_token = os.getenv('bot')
 

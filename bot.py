@@ -9,7 +9,7 @@ import time
 import sqlite3
 import crypto_price
 import os
-import settings
+import account_setings
 import pandas as pd
 import CurrencyPlot
 
@@ -536,11 +536,3 @@ def find_crypto(message):
         "\n/find")
 
 bot.polling(none_stop=True, timeout=123)
-
-
-
-
-
-
-
-
