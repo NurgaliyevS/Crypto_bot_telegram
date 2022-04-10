@@ -4,24 +4,24 @@
 
 ```
 - Set alerts;
-- Send price about crypto;
-- Add records to database;
-- Delete records from the database;
-- Analyze current price and user price;
+- Send information on specific cryptocurrency
+- Send graph on specific crypto
+- Add records to database
+- Delete records from the database
+- Analyze current price and user price
 ```
 
 ### Supported commands: ###
 ```
-/start - Invite to use the bot
-/help - Sends a list of coins on which you can set alerts
-/main - Sends a list of coins with their prices
-/alert - Set an alert
+/start - Let's start!
+/help - Need help? 
+/main - Get сurrent prices for my favorite cryptocurrencies
+/find - Get information for specific cryptocurrency
+/alert - Сreate a cryptocurrency notification
+/graph - Get graph for specific cryptocurrency
 /record - Get a list of created records
-/delete - Delete notification
-/btc - Get Bitcoin price
-/eth - Get Ethereum price
-/doge - Get Dogecoin price
-/ltc - Get Litecoin price
+/delete - Delete record from database
+/records - Get information of 250 cryptocurrencies in txt file
 /creator - Write to the creator
 ```
 
@@ -35,7 +35,6 @@
 <img src="../main/assets/images/6.jpg" width="300">
 <img src="../main/assets/images/7.jpg" width="300">
 <img src="../main/assets/images/8.jpg" width="300">
-<img src="../main/assets/images/9.jpg" width="300">
   
 </p>
 
