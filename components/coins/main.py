@@ -3,7 +3,6 @@ import sys
 import pandas as pd
 from pycoingecko import CoinGeckoAPI
 from sqlalchemy import create_engine
-from sqlalchemy_utils import database_exists, create_database
 sys.path.insert(1, '/Users/constantion/Desktop/CRYPTO BOT/Crypto_bot_telegram')
 import settings
 
