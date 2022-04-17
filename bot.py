@@ -1,3 +1,5 @@
+from binascii import crc32
+from typing import Text
 import numpy
 import telebot
 from pycoingecko import CoinGeckoAPI
@@ -7,11 +9,15 @@ import json
 from time import sleep
 import time
 import sqlite3
+
+from zmq import TYPE
 import crypto_price
 import os
 import account_setings
 import pandas as pd
 import CurrencyPlot
+import settings
+import psycopg2
 
 link = "https://t.me/yatemez"
 
@@ -40,25 +46,29 @@ To get graph for specific coin write.
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    # connect DB and create table
-    connect = sqlite3.connect('customer.db')
-    cursor = connect.cursor()
-    username = message.from_user.first_name
-    connect.commit()
-
-    # check id in fields
-    people_id = message.chat.id
-    ## так как people_id это форматирование, поэтому перед SELECT знак f
-    cursor.execute(f"SELECT id FROM CUSTOMER WHERE id = {people_id}")
-    ## в переменной data = все поля в котором есть мой ID
-    data = cursor.fetchone()
-    if data is None:
-        # add values in fields
-        ## Один ?, так как только добавляется одно поле ID
-        customer_list = [message.chat.id, 1488, username]
-        cursor.execute("INSERT INTO CUSTOMER (id, id_group, customer_name) VALUES(?, ?, ?);", customer_list)
-        connect.commit()
-    bot.send_message(message.chat.id, """\
+    try:
+        connection = psycopg2.connect(
+                host = settings.host,
+                database = settings.db_name_2,
+                user = settings.user,
+                password = settings.password,
+                port = settings.port_id
+            )
+        # Call IT one Time That's it
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            people_id = message.chat.id
+            cursor.execute(f"SELECT id FROM customer WHERE id = {people_id}")
+            data = cursor.fetchone()
+            if data is None:
+                # add values in fields
+                ## Один ?, так как только добавляется одно поле ID
+                postgres_insert_query = """INSERT INTO customer (id, id_group, customer_name)
+                VALUES (%s, %s, %s);
+                """
+                record_to_insert = (people_id, 1488, message.from_user.first_name)
+                cursor.execute(postgres_insert_query, record_to_insert)
+        bot.send_message(message.chat.id, """\
 Hi there, {0.first_name}, I am Alexa bot v3.
 I am here to help you! I can send you crypto price.
 Just type or click on commands:
@@ -83,6 +93,47 @@ Just type or click on commands:
 
 /creator - Write to the creator
 """.format(message.from_user, bot.get_me()))
+
+    except:
+            msg = bot.send_message(message.chat.id, "I don't get it."
+                                                    "\nTry again, please."
+                                                    "\nExample:"
+                                                    "\nBitcoin 50000.")
+            bot.register_next_step_handler(msg, add_record_db)
+    finally:
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")
+
+# @bot.message_handler(commands=['groups'])
+def create_groups(message):
+    try:
+        connection = psycopg2.connect(
+                host = settings.host,
+                database = settings.db_name_2,
+                user = settings.user,
+                password = settings.password,
+                port = settings.port_id
+            )
+        # Call IT one Time That's it
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            postgres_insert_query = """INSERT INTO sgroup (id, group_name)
+                VALUES (%s, %s);
+                """
+            record_to_insert = (1377, 'paid')
+            cursor.execute(postgres_insert_query, record_to_insert)
+    except:
+            msg = bot.send_message(message.chat.id, "I don't get it."
+                                                    "\nTry again, please."
+                                                    "\nExample:"
+                                                    "\nBitcoin 50000.")
+            bot.register_next_step_handler(msg, add_record_db)
+    finally:
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")
+
 
 def collect_data():
     s = requests.Session()
@@ -138,6 +189,8 @@ def callbacks(message):
 def alert (message):
     #### /alert
     #### пользователь вводит сначала команду alert
+    if message.text == "/start":
+        return start(message)
     msg = bot.send_message(message.chat.id, "To set an alert."
                                         "\n"
                                       "\nWrite the name of the"
@@ -156,269 +209,451 @@ def add_record_db(message):
     user_coin = message.text
     user_coin = user_coin.lower()
     user_coin = user_coin.split()
+    coin = list()
+    price = list()
     crypto_coin = list_coins_2()
     try:
-        coin, price = user_coin[0], user_coin[1]
-        if user_coin[1].isdigit() or float(user_coin[1]) and user_coin[0] in crypto_coin:
-            connect = sqlite3.connect('coins.db')
-            cursor = connect.cursor()
-            cursor.execute("SELECT cm.id, cm.market_cap_rank ,lower(cm.name), cm.current_price FROM Coins_Markets cm WHERE lower(cm.name) = '{}' or cm.id = '{}'".format(user_coin[0], user_coin[0]))
-            data = cursor.fetchone()
-            user = []
-            for i in data:
-                user.append(i)
-            connect.commit()
-            connect.close()
-            user_up_or_down_price = int()
-            user[1] = str(user[1])
-            user_coin[1] = float(user_coin[1])
-            if user_coin[1] >= crypto_price.check_crypto_price(user[2]):
-                user_up_or_down_price = 1
+        for i in user_coin:
+            try: 
+                float(i)
+                price.append(i)
+            except:        
+                if i.isdigit():
+                    price.append(i)
+                else:
+                    coin.append(i)
+        coin = ' '.join([str(item) for item in coin])
+        crypto_coin = list(crypto_coin)
+        for coinsDb in crypto_coin:
+            for coinDb in coinsDb:
+                coinDb = str(coinDb)
+                coinDb = coinDb.lower()
+                if coinDb == coin:
+                    print('YEEEES')
+        try:
+            userCoinId = indexUserCoin(coin)
+            idUserCoin = 0
+            for userCoin in userCoinId:
+                for idCoinUser in userCoin:
+                    idUserCoin += idCoinUser
+            idUserCoin = int(idUserCoin)
+            userPrice = ''
+            for i in price:
+                userPrice += i
+            print(crypto_price.check_crypto_price(coin))
+            print(type(crypto_price.check_crypto_price(coin)))
+            if float(userPrice) >= crypto_price.check_crypto_price(coin):
+                user_up_or_down_price = True
+                notified_or_not = False
             else:
-                user_up_or_down_price = 0
-            connect = sqlite3.connect('customer.db')
-            cursor = connect.cursor()
-            customer_coin = [message.chat.id, user[1], price, user_up_or_down_price, 0]
-            cursor.execute("INSERT INTO CUSTOMER_COIN (note_id, id_customer, id_coin, price_coin, up_or_down_price, notified_or_not) VALUES(NULL, ?,?, ?, ?, ?);", customer_coin)
-            connect.commit()
-            bot.send_message(message.chat.id, "Your cryptocurrency has been found."
-                                                            f"\n{coin.upper()[0] + coin[1:]}. \nMade record to the database."
-                                                            "\nYou will receive an alert when your price matches the current one.")
-            make_a_new_alert(message)
-        else:
-            msg = bot.send_message(message.chat.id, "I don't get it"
-                                                    "\nTry again, please"
-                                                    "\nExample:"
-                                                    "\nBitcoin 50000")
-            bot.register_next_step_handler(msg, add_record_db)
+                user_up_or_down_price = False
+                notified_or_not = False
+            print('id_customer', message.chat.id, type(message.chat.id), 'id_coin', idUserCoin, type(idUserCoin) , 'price_coin', userPrice, type(int(userPrice)), 'up_or_down_price', user_up_or_down_price, type(user_up_or_down_price), 'notified_or_not', False, type(False) )
+            connection = psycopg2.connect(
+                host = settings.host,
+                database = settings.db_name_2,
+                user = settings.user,
+                password = settings.password,
+                port = settings.port_id
+            )
+            # Call IT one Time That's it
+            connection.autocommit = True
+            with connection.cursor() as cursor:
+                postgres_insert_query = """INSERT INTO customer_coin (id_customer, id_coin, price_coin, up_or_down_price, notified_or_not)
+                    VALUES (%s, %s, %s, %s, %s);
+                    """
+                record_to_insert = (message.chat.id, idUserCoin, int(userPrice), user_up_or_down_price, notified_or_not )
+                cursor.execute(postgres_insert_query, record_to_insert)
+                bot.send_message(message.chat.id, "Your cryptocurrency has been found."
+                                                            f"\n{coin.upper()[0] + coin[1:]} {userPrice}$."
+                                                            "\nMade record to the database."
+                                                            "\nYou will receive an alert when"
+                                                            "\nyour price matches the current one.")
+                make_a_new_alert(message)
+        except Exception as _ex:
+            msg = ("[INFO] Error while working with PostgreSQL", _ex)
+            bot.send_message(message.chat.id, msg)
+        finally:
+            if connection:
+                connection.close()
+                print("[INFO] PostgreSQL connection closed")
+        
     except:
         msg = bot.send_message(message.chat.id, "I don't get it."
                                                 "\nTry again, please."
                                                 "\nExample:"
-                                                "\nBitcoin 50000.")
+                                                "\nBitcoin 50000."
+                                                "\nIf you want to return."
+                                                "\n/start")
         bot.register_next_step_handler(msg, add_record_db)
-
-def list_coins_2():
-    sqlite_connection = sqlite3.connect('coins.db')
-    cursor = sqlite_connection.cursor()
-    print("Подключен к SQLite")
-    sqlite_select_query = f"""SELECT cm.id, cm.name
-    FROM Coins_Markets cm"""
-    cursor.execute(sqlite_select_query)
-    text = cursor.fetchall()
-    cursor.close()
-    text = str(text)
-    result = text.replace("[", "").replace("(", "").replace("'","").replace(",","").replace(")","\n").replace("]","")
-    return result
 
 def make_a_new_alert(message):
     bot.send_message(message.chat.id, "Do you want to continue?"
-                                            "\n/alert"
-                                            "\nIf you want to exit?"
-                                            "\n/start")
+                                        "\n/alert"
+                                        "\nIf you want to exit?"
+                                        "\n/start")
 
-# @bot.message_handler(commands=['create_db'])
-def create_db(message):
-    connect = sqlite3.connect('customer.db')
-    cursor = connect.cursor()
-    cursor.execute("""CREATE TABLE IF NOT EXISTS SGROUP (
-                        id INTEGER PRIMARY KEY,
-                        group_name VARCHAR(40)
-                        )""")
-    cursor.execute("""CREATE TABLE IF NOT EXISTS CUSTOMER (
-                            id INTEGER PRIMARY KEY,
-                            id_group INTEGER,
-                            customer_name VARCHAR (40),
-                            FOREIGN KEY (id_group) REFERENCES SGROUP (id)
-                            )""")
-    cursor.execute("""CREATE TABLE IF NOT EXISTS COIN (
-                            id INTEGER PRIMARY KEY,
-                            coin_name VARCHAR (65),
-                            coin_market_id VARCHAR(65)
-                            )""")
-    cursor.execute("""CREATE TABLE IF NOT EXISTS CUSTOMER_COIN (
-                            note_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            id_customer INTEGER,
-                            id_coin INTEGER,
-                            price_coin INTEGER,
-                            up_or_down_price INTEGER NOT NULL CHECK(up_or_down_price in (0,1)),
-                            notified_or_not INTEGER NOT NULL CHECK(notified_or_not in (0,1)),
-                            FOREIGN KEY(id_customer) REFERENCES CUSTOMER(id),
-                            FOREIGN KEY(id_coin)REFERENCES COIN(id)
-                            )""")
-    connect.commit()
-    bot.send_message(message.chat.id, "You database has been created.")
+def list_coins_2():
+    try:
+        connection = psycopg2.connect(
+            host = settings.host,
+            database = settings.db_name,
+            user = settings.user,
+            password = settings.password,
+            port = settings.port_id
+        )
+        # Call IT one Time That's it
+        connection.autocommit = True
 
-# @bot.message_handler(commands=['constant_db'])
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT id, name
+	            FROM coins_info;
+                """)
+            data = cursor.fetchall()
+            coin_id = list()
+            coin_name = list()
+            for a, b in data:
+                coin_id.append(a)
+                coin_name.append(b)
+            return coin_id, coin_name
+
+    except Exception as _ex:
+        print("[INFO] Error while working with PostgreSQL", _ex)
+    finally:
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")
+
+def indexUserCoin(coin):
+    try:
+        connection = psycopg2.connect(
+            host = settings.host,
+            database = settings.db_name,
+            user = settings.user,
+            password = settings.password,
+            port = settings.port_id
+        )
+        # Call IT one Time That's it
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT market_cap_rank
+	            FROM coins_info
+                WHERE lower(name) = %s OR id = %s ;
+                """, [coin, coin ])
+            data = cursor.fetchall()
+            coin_id = list()
+            for a in data:
+                coin_id.append(a)
+            return coin_id
+
+    except Exception as _ex:
+        print("[INFO] Error while working with PostgreSQL", _ex)
+    finally:
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")
+
+# @bot.message_handler(commands=['coins'])
 def constant_db(message):
-    connect = sqlite3.connect('coins.db')
-    cursor = connect.cursor()
-    data = cursor.execute("SELECT cm.market_cap_rank, lower(cm.name), cm.id FROM Coins_Markets cm")
-    allCoins = []
-    for value in data:
-        allCoins.append(value)
-    cursor.close()
-    # print(allCoins)
-    connect = sqlite3.connect('customer.db')
-    cursor = connect.cursor()
-    user = []
-    for i in range(len(allCoins)):
-        cursor.execute("INSERT INTO COIN (id, coin_name, coin_market_id) VALUES(?,?, ?);", allCoins[i])
-        connect.commit()
-    cursor.close()
-    bot.send_message(message.chat.id, "You constants has been added to database.")
+    try:
+        connection = psycopg2.connect(
+            host = settings.host,
+            database = settings.db_name,
+            user = settings.user,
+            password = settings.password,
+            port = settings.port_id
+        )
+        # Call IT one Time That's it
+        connection.autocommit = True
 
-#### ЧТЕНИЕ ВСЕГО ЧТО ЕСТЬ В БАЗЕ ДАННЫХ
-#### НЕОБХОДИМО БРАТЬ ОБРАБОТАТЬ ЭТИ ДАННЫЕ
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT id
+	            FROM coins_info;
+                """)
+            data = cursor.fetchall()
+            coin_id = list()
+            for a in data:
+                coin_id.append(a)
+        try:
+            connection = psycopg2.connect(
+                host = settings.host,
+                database = settings.db_name,
+                user = settings.user,
+                password = settings.password,
+                port = settings.port_id
+            )
+            # Call IT one Time That's it
+            connection.autocommit = True
+
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """SELECT name
+                    FROM coins_info;
+                    """)
+                data = cursor.fetchall()
+                coin_name = list()
+                for b in data:
+                    coin_name.append(b)
+            try:
+                connection = psycopg2.connect(
+                    host = settings.host,
+                    database = settings.db_name_2,
+                    user = settings.user,
+                    password = settings.password,
+                    port = settings.port_id
+                )
+                connection.autocommit = True
+                with connection.cursor() as cursor:
+                    # ALTER SEQUENCE coin_id_seq RESTART WITH 1;
+                    # Обнулить smallserial or serial
+                    for i in range(len(coin_name)):
+                        postgres_insert_query = """INSERT INTO coin (coin_name, coin_market_id)
+                            VALUES (%s, %s);
+                            """
+                        record_to_insert = (coin_name[i], coin_id[i])
+                        cursor.execute(postgres_insert_query, record_to_insert)
+            except Exception as _ex:
+                print("[INFO] Error while working with PostgreSQL", _ex)
+            finally:
+                if connection:
+                    connection.close()
+                    print("[INFO] PostgreSQL connection closed")
+
+        except Exception as _ex:
+            print("[INFO] Error while working with PostgreSQL", _ex)
+        finally:
+            if connection:
+                connection.close()
+                print("[INFO] PostgreSQL connection closed")                
+
+    except Exception as _ex:
+        print("[INFO] Error while working with PostgreSQL", _ex)
+    finally:
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")
+
 @bot.message_handler(commands=['record'])
 def read_sqlite_table(message):
     try:
         bot.send_message(message.chat.id, 'Please, wait. I receive an information.')
         time.sleep(3)
-        sqlite_connection = sqlite3.connect('customer.db')
-        cursor = sqlite_connection.cursor()
-        print("Подключен к SQLite")
         people_id = message.chat.id
-        # people_id = message.chat.id
-        # ## так как people_id это форматирование, поэтому перед SELECT знак f
-        # cursor.execute(f"SELECT id FROM CUSTOMER WHERE id = {people_id}")
-        # sqlite_select_query = """SELECT cc.note_id, cc.id_customer, cc.id_coin, cc.price_coin, c.customer_name, cn.coin_name from CUSTOMER_COIN cc, CUSTOMER c, Coin cn WHERE cc.id_coin """
-        sqlite_select_query = f"""SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin
-        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id and cm.id = {people_id}"""
-        cursor.execute(sqlite_select_query)
-        text = cursor.fetchall()
-        print("Всего строк: ", len(text))
-        # print("Вывод каждой строки")
-        a = []
-        #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-        #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-        #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-        for rows in text:
-            a.append(rows)
-        c = list()
-        for i in range(len(a)):
-            c.append(a[i])
-        c = str(c)
-        c = c.replace(',',"").replace('(', " ", 1).replace(')',"$",1).replace('(',"\n").replace(")","$").replace("'", "").replace("["," ").replace("]","")
-        print(c)
-        cursor.close()
-        bot.send_message(message.chat.id, f'{c}')
-
-    except sqlite3.Error as error:
-        print("Ошибка при работе с SQLite", error)
+        connection = psycopg2.connect(
+                host = settings.host,
+                database = settings.db_name_2,
+                user = settings.user,
+                password = settings.password,
+                port = settings.port_id
+            )
+            # Call IT one Time That's it
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin
+        FROM customer_coin c_c, customer cm, coin c
+        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id and cm.id = %s
+        ORDER BY c_c.note_id ASC""", [people_id])
+            text = cursor.fetchall()
+            if text == []:
+                msg = bot.send_message(message.chat.id, "You haven't got created records yet."
+                "\nRedirect to the alert function."
+                "\nWrite if you want to make a new alert."
+                "\nyes"
+                "\nIf you want to return."
+                "\n/start")
+                bot.register_next_step_handler(msg, alert)
+            else:
+                a = []
+                for rows in text:
+                    a.append(rows)
+                c = list()
+                for i in range(len(a)):
+                    c.append(a[i])
+                c = str(c)
+                c = c.replace(',',"").replace('(', " ", 1).replace(')',"$",1).replace('(',"\n").replace(")","$").replace("'", "").replace("["," ").replace("]","")
+                print(c, 'HEEEYY MAN')
+                cursor.close()
+                bot.send_message(message.chat.id, f'{c}')
+                
+    except Exception as _ex:
+            bot.send_message(message.chat.id, "[INFO] Error while working with PostgreSQL", _ex)
     finally:
-        if sqlite_connection:
-            sqlite_connection.close()
-            print("Соединение с SQLite закрыто")
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")
+
+def read_records_table(person_id):
+    try:
+        # time.sleep(3)
+        connection = psycopg2.connect(
+                host = settings.host,
+                database = settings.db_name_2,
+                user = settings.user,
+                password = settings.password,
+                port = settings.port_id
+            )
+            # Call IT one Time That's it
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT c_c.note_id
+        FROM customer_coin c_c, customer cm, coin c
+        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id and cm.id = %s""", [person_id])
+            data = cursor.fetchall()
+            record_idDb = list()
+            for a in data:
+                record_idDb.append(a)
+            record_id = ''.join([str(item) for item in record_idDb])
+            record_id = record_id.replace('(', '').replace(')','').replace(',', ' ')
+            record_id = record_id.split()
+            return record_id
+                
+    except:
+            bot.send_message(person_id, "No such record exists")
+    finally:
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")
 
 @bot.message_handler(commands=['delete'])
 def delete(message):
-    read_sqlite_table(message)
-    msg = bot.send_message(message.chat.id, "Choose a note number which you would like to delete, {0.first_name}!".format(message.from_user, bot.get_me()))
-    bot.register_next_step_handler(msg, delete_record_from_db)
+    result = read_sqlite_table(message)
+    if result is None:
+        print('not good Man')
+    else:
+        msg = bot.send_message(message.chat.id, "Choose a note number which you would like to delete, {0.first_name}!".format(message.from_user, bot.get_me()))
+        bot.register_next_step_handler(msg, delete_record_from_db)
 
 def delete_record_from_db(message):
     delete_note_id = message.text
+    result = read_records_table(message.chat.id)
     try:
-        if delete_note_id.isdigit():
-            print('YES')
-            connect = sqlite3.connect('customer.db')
-            cursor = connect.cursor()
-            ## так как people_id это форматирование, поэтому перед SELECT знак f
-            cursor.execute(f"""DELETE from CUSTOMER_COIN where note_id = {delete_note_id}""")
-            connect.commit()
-            cursor.close()
-            bot.send_message(message.chat.id, "Your note has been deleted successfully")
-            read_sqlite_table(message)
-        else:
-            msg = bot.send_message(message.chat.id, "Try another one:bot.register_next_step_handler(msg, delete_record_from_db) ")
-            bot.register_next_step_handler(msg, delete_record_from_db)
+        for i in result:
+            if i == delete_note_id:
+                print('hello')
+                if delete_note_id.isdigit():
+                    try:
+                        connection = psycopg2.connect(
+                            host = settings.host,
+                            database = settings.db_name_2,
+                            user = settings.user,
+                            password = settings.password,
+                            port = settings.port_id
+                        )
+                        # Call IT one Time That's it
+                        connection.autocommit = True
+                        with connection.cursor() as cursor:
+                            cursor.execute(
+                                """DELETE from CUSTOMER_COIN where note_id = %s""", [delete_note_id])
+                        bot.send_message(message.chat.id, "Your note has been deleted successfully")
+                        read_sqlite_table(message)
+    
+                    except Exception as _ex:
+                        bot.send_message(message.chat.id, "[INFO] Error while working with PostgreSQL", _ex)
+                    finally:
+                        if connection:
+                            connection.close()
+                            print("[INFO] PostgreSQL connection closed")
+                else:
+                    msg = bot.send_message(message.chat.id, "No such record exists"
+                    "\nTry again.")
+                    bot.register_next_step_handler(msg, delete_record_from_db)
+            else:
+                msg = bot.send_message(message.chat.id, "No such record exists"
+                "\nTry again.")
+                bot.register_next_step_handler(msg, delete_record_from_db)    
     except:
-        msg = bot.send_message(message.chat.id, "Try another one: ")
-        bot.register_next_step_handler(msg, delete_record_from_db)
+        msg = bot.send_message(message.chat.id, "No such record exists"
+        "\nTry again.")
+        bot.register_next_step_handler(msg, delete_record_from_db)    
 
 @bot.message_handler(commands=['records'])
 def get_100_coins_db(message):
-    crypto_price.get_top_250_coins()
+    crypto_price.get_coins_api_postgres()
     try:
         bot.send_message(message.chat.id, 'Please, wait. I receive an information.')
-        sqlite_connection = sqlite3.connect('coins.db')
-        cursor = sqlite_connection.cursor()
-        print("Подключен к SQLite")
-        sqlite_select_query = f"""SELECT cm.market_cap_rank, cm.name, cm.current_price, cm.price_change_24h, cm.price_change_percentage_24h, cm.market_cap, cm.market_cap_change_percentage_24h, cm.max_supply, cm.circulating_supply, cm.high_24h, cm.low_24h
-        FROM Coins_Markets cm"""
-        cursor.execute(sqlite_select_query)
-        text = cursor.fetchall()
-        print("Всего строк: ", len(text))
-        # print("Вывод каждой строки")
-        a = []
-        #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-        #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-        #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-        with open("crypto.txt", 'w') as f:
-            for i in range(len(text)):
-                if text[i][0]:
-                    f.write('Market_Cap_Rank: ')
-                    f.write(str(text[i][0]))
+        connection = psycopg2.connect(
+                        host = settings.host,
+                        database = settings.db_name,
+                        user = settings.user,
+                        password = settings.password,
+                        port = settings.port_id
+                    )
+                    # Call IT one Time That's it
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            cursor.execute("""
+            SELECT cm.market_cap_rank, cm.name, cm.current_price, cm.price_change_24h, cm.price_change_percentage_24h, cm.market_cap, cm.market_cap_change_percentage_24h, cm.max_supply, cm.circulating_supply, cm.high_24h, cm.low_24h
+            FROM coins_info cm
+            """)
+            text = cursor.fetchall()
+            print("Всего строк: ", len(text))
+            with open("crypto.txt", 'w') as f:
+                for i in range(len(text)):
+                    if text[i][0]:
+                        f.write('Market_Cap_Rank: ')
+                        f.write(str(text[i][0]))
+                        f.write('\n')
+                    if text[i][1]:
+                        f.write('Coin: ')
+                        f.write(str(text[i][1]))
+                        f.write('\n')
+                    if text[i][2]:
+                        f.write('Current_Price: ')
+                        f.write(str(text[i][2]))
+                        f.write('\n')
+                    if text[i][3]:
+                        f.write('Price_Change_24h: ')
+                        f.write(str(text[i][3]))
+                        f.write('\n')
+                    if text[i][4]:
+                        f.write('Price_Change_Percentage_24h: ')
+                        f.write(str(text[i][4]))
+                        f.write('\n')
+                    if text[i][5]:
+                        numbers = "{:,}".format(text[i][5])
+                        f.write('Market_Cap: ')
+                        f.write(str(numbers))
+                        f.write('\n')
+                    if text[i][6]:
+                        f.write('Market_Cap_Change_Percentage_24h: ')
+                        f.write(str(text[i][6]))
+                        f.write('\n')
+                    if text[i][7]:
+                        numbers = "{:,}".format(text[i][7])
+                        f.write('Max_Supply: ')
+                        f.write(str(numbers))
+                        f.write('\n')
+                    if text[i][8]:
+                        numbers = "{:,}".format(text[i][8])
+                        f.write('Circulating_Supply: ')
+                        f.write(str(numbers))
+                        f.write('\n')
+                    if text[i][9]:
+                        f.write('Price_High_24h: ')
+                        f.write(str(text[i][9]))
+                        f.write('\n')
+                    if text[i][10]:
+                        f.write('Price_low_24h: ')
+                        f.write(str(text[i][10]))
+                        f.write('\n')
                     f.write('\n')
-                if text[i][1]:
-                    f.write('Coin: ')
-                    f.write(str(text[i][1]))
-                    f.write('\n')
-                if text[i][2]:
-                    f.write('Current_Price: ')
-                    f.write(str(text[i][2]))
-                    f.write('\n')
-                if text[i][3]:
-                    f.write('Price_Change_24h: ')
-                    f.write(str(text[i][3]))
-                    f.write('\n')
-                if text[i][4]:
-                    f.write('Price_Change_Percentage_24h: ')
-                    f.write(str(text[i][4]))
-                    f.write('\n')
-                if text[i][5]:
-                    numbers = "{:,}".format(text[i][5])
-                    f.write('Market_Cap: ')
-                    f.write(str(numbers))
-                    f.write('\n')
-                if text[i][6]:
-                    f.write('Market_Cap_Change_Percentage_24h: ')
-                    f.write(str(text[i][6]))
-                    f.write('\n')
-                if text[i][7]:
-                    numbers = "{:,}".format(text[i][7])
-                    f.write('Max_Supply: ')
-                    f.write(str(numbers))
-                    f.write('\n')
-                if text[i][8]:
-                    numbers = "{:,}".format(text[i][8])
-                    f.write('Circulating_Supply: ')
-                    f.write(str(numbers))
-                    f.write('\n')
-                if text[i][9]:
-                    f.write('Price_High_24h: ')
-                    f.write(str(text[i][9]))
-                    f.write('\n')
-                if text[i][10]:
-                    f.write('Price_low_24h: ')
-                    f.write(str(text[i][10]))
-                    f.write('\n')
-                f.write('\n')
-            f.close()
-        cursor.close()
-        doc = open('crypto.txt', 'rb')
-        bot.send_message(message.chat.id, "Sending...")
-        bot.send_document(message.chat.id, doc)
-        doc.close()
-        
-    except sqlite3.Error as error:
-        print("Ошибка при работе с SQLite", error)
+                f.close()
+            cursor.close()
+            doc = open('crypto.txt', 'rb')
+            bot.send_message(message.chat.id, "Sending...")
+            bot.send_document(message.chat.id, doc)
+            doc.close()
+    except:
+            bot.send_message(message.chat.id, "I can't do it right now.")
     finally:
-        if sqlite_connection:
-            sqlite_connection.close()
-            print("Соединение с SQLite закрыто")
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")
 
 @bot.message_handler(commands=['graph'])
 def crypto_graph(message):
@@ -467,26 +702,41 @@ def coin_plot(message):
 @bot.message_handler(commands=['list_coins'])
 def list_coins(message):
     bot.send_message(message.chat.id, 'Please, wait. I receive an information.')
-    sqlite_connection = sqlite3.connect('coins.db')
-    cursor = sqlite_connection.cursor()
-    print("Подключен к SQLite")
-    sqlite_select_query = f"""SELECT cm.id
-    FROM Coins_Markets cm"""
-    cursor.execute(sqlite_select_query)
-    text = cursor.fetchall()
-    cursor.close()
-    with open("name_coins.txt", 'w') as f:
-        for line in text:
-            line = str(line)
-            # print(line[2].upper() + line[:2])
-            line = line.replace("(", '').replace(")","").replace(",","").replace("'", "")
-            f.write(line[0].upper() + line[1:])
-            f.write('\n')
-    f.close()
-    doc = open('name_coins.txt', 'rb')
-    bot.send_message(message.chat.id, "Sending...")
-    bot.send_document(message.chat.id, doc)
-    doc.close()
+    try:
+        connection = psycopg2.connect(
+                        host = settings.host,
+                        database = settings.db_name,
+                        user = settings.user,
+                        password = settings.password,
+                        port = settings.port_id
+                    )
+                    # Call IT one Time That's it
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT cm.id, cm.name
+                            FROM coins_info cm""")
+            data = cursor.fetchall()
+            with open("name_coins.txt", 'w') as f:
+                for a, b in data:
+                    f.write('ID: ')
+                    f.write(a.capitalize())
+                    f.write('\n')
+                    f.write('Name: ')
+                    f.write(b.capitalize())
+                    f.write('\n')
+                    f.write('\n')
+                f.close()
+                doc = open('name_coins.txt', 'rb')
+                bot.send_message(message.chat.id, "Sending...")
+                bot.send_document(message.chat.id, doc)
+                doc.close()
+    except Exception as _ex:
+        msg = ("[INFO] Error while working with PostgreSQL", _ex)
+        bot.send_message(message.chat.id, msg)
+    finally:
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")
 
 @bot.message_handler(commands=['find'])
 def crypto_handler(message):
@@ -497,35 +747,44 @@ def crypto_handler(message):
 
 def find_crypto(message):
     try:
-        crypto_price.get_top_250_coins()
+        crypto_price.get_coins_api_postgres()
         user_coin = message.text
         user_coin = user_coin.lower()
         # coin_plot(user_coin.user_coin)
         print(user_coin)
-        sqlite_connection = sqlite3.connect('coins.db')
-        cursor = sqlite_connection.cursor()
-        print("Подключен к SQLite")
-        cursor.execute("SELECT cm.market_cap_rank,cm.id, lower(cm.name), cm.current_price, cm.price_change_24h, cm.price_change_percentage_24h, cm.market_cap, cm.market_cap_change_percentage_24h,cm.total_volume, cm.circulating_supply, cm.max_supply, cm.high_24h, cm.low_24h FROM Coins_Markets cm WHERE lower(cm.name) = '{}' or cm.id = '{}'".format(user_coin, user_coin))
-        data = cursor.fetchone()
-        user = []
-        print(data)
-        print('hey', data[10])
-        for i in data:
-            user.append(i)
-        if user[10] is None:
-            user[10] = 0
-        sqlite_connection.commit()
-        cursor.close()
-        result = 'Market Cap Rank: {} \nName: {} \nPrice: {}$ \nPrice Change 24h: {}$ \nPrice Change 24h: {}% \nMarket Cap: {:,} \nMarket Cap 24h: {}% \nTotal Volume: {:,} \nCirculating Supply: {:,} \nMax suply: {:,} \nLow Price 24h: {}$ \nHigh price 24h: {}$'.format(user[0], user[2].capitalize(), user[3], user[4], user[5], user[6], user[7], user[8], user[9], user[10], user[12], user[11])
-        bot.send_message(message.chat.id, result)
-        result = CurrencyPlot.get_exact_value_json(user_coin)
-        CurrencyPlot.paint_plot(user_coin, 1)
-        print('hello')
-        usd = cg.get_price(ids='{}'.format(result), vs_currencies='usd')['{}'.format(result)]['usd']
-        img = open('foo.png', 'rb')
-        bot.send_photo(message.chat.id, img, caption='Price of the last {} day of {}\n'
-                                                    'Current price {}$'.format(1,result[0].upper() + result[1:], usd))
-        img.close()
+        connection = psycopg2.connect(
+                        host = settings.host,
+                        database = settings.db_name,
+                        user = settings.user,
+                        password = settings.password,
+                        port = settings.port_id
+                    )
+                    # Call IT one Time That's it
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            cursor.execute("""
+            SELECT cm.market_cap_rank,cm.id, lower(cm.name), cm.current_price, cm.price_change_24h, cm.price_change_percentage_24h, cm.market_cap, cm.market_cap_change_percentage_24h,cm.total_volume, cm.circulating_supply, cm.max_supply, cm.high_24h, cm.low_24h
+            FROM coins_info cm 
+            WHERE lower(cm.name) = %s or cm.id = %s
+            """, [user_coin, user_coin])
+            data = cursor.fetchone()
+            user = []
+            print(data)
+            print('hey', data[10])
+            for i in data:
+                user.append(i)
+            if user[10] is None:
+                user[10] = 0
+            result = 'Market Cap Rank: {} \nName: {} \nPrice: {}$ \nPrice Change 24h: {}$ \nPrice Change 24h: {}% \nMarket Cap: {:,} \nMarket Cap 24h: {}% \nTotal Volume: {:,} \nCirculating Supply: {:,} \nMax suply: {:,} \nLow Price 24h: {}$ \nHigh price 24h: {}$'.format(user[0], user[2].capitalize(), user[3], user[4], user[5], user[6], user[7], user[8], user[9], user[10], user[12], user[11])
+            bot.send_message(message.chat.id, result)
+            result = CurrencyPlot.get_exact_value_json(user_coin)
+            CurrencyPlot.paint_plot(user_coin, 1)
+            print('hello')
+            usd = cg.get_price(ids='{}'.format(result), vs_currencies='usd')['{}'.format(result)]['usd']
+            img = open('foo.png', 'rb')
+            bot.send_photo(message.chat.id, img, caption='Price of the last {} day of {}\n'
+                                                        'Current price {}$'.format(1,user[2].capitalize(), usd))
+            img.close()
 
     except:
         bot.send_message(message.chat.id, "I can't find crypto with this name"

@@ -6,6 +6,8 @@ from pycoingecko import CoinGeckoAPI
 import datetime
 import sqlite3
 import json
+import settings
+import psycopg2
 
 reformatted_data = dict()
 
@@ -28,20 +30,33 @@ def paint_plot(id_of_cur, days):
     result = mpf.plot(pdata, type='line', savefig='foo.png')
 
 def get_exact_value_json(id_of_cur):
-    sqlite_connection = sqlite3.connect('coins.db')
-    cursor = sqlite_connection.cursor()
-    print("Подключен к SQLite")
-    cursor.execute("SELECT cm.id, lower(cm.name) FROM Coins_Markets cm WHERE lower(cm.name) = '{}' or cm.id = '{}'".format(id_of_cur, id_of_cur))
-    dataDb = cursor.fetchone()
-    cursor.close()
-    print(dataDb)
-    f = open('response_crypto.json', errors='ignore')
-    data = json.load(f)
-    f.close()
-    for i in data:
-        if i['id'] == dataDb[0]:
-            result = i['id']
-            print(i)
-    return result
-    
-    
+    try:
+        connection = psycopg2.connect(
+                        host = settings.host,
+                        database = settings.db_name,
+                        user = settings.user,
+                        password = settings.password,
+                        port = settings.port_id
+                    )
+                    # Call IT one Time That's it
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT cm.id, lower(cm.name) FROM coins_info cm WHERE lower(cm.name) = '{}' or cm.id = '{}'".format(id_of_cur, id_of_cur))
+            dataDb = cursor.fetchone()
+            cursor.close()
+            print(dataDb)
+            f = open('response_crypto.json', errors='ignore')
+            data = json.load(f)
+            f.close()
+            for i in data:
+                if i['id'] == dataDb[0]:
+                    result = i['id']
+                    print(i)
+            return result
+            
+    except Exception as _ex:
+        return "[INFO] Error while working with PostgreSQL", _ex
+    finally:
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")

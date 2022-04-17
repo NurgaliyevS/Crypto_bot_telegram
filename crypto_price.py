@@ -14,24 +14,76 @@ cg = CoinGeckoAPI()
 # Authenticate with the client
 client = Client(api_key, api_secret)
 
-def get_top_250_coins():
+import psycopg2
+import sys
+import pandas as pd
+from pycoingecko import CoinGeckoAPI
+from sqlalchemy import create_engine
+sys.path.insert(1, '/Users/constantion/Desktop/CRYPTO BOT/Crypto_bot_telegram')
+import settings
+
+cg = CoinGeckoAPI()
+
+def get_coins_api_postgres():
+    url = f'postgresql+psycopg2://{settings.user}:{settings.password}@{settings.host}/{settings.db_name}'
     page = 0
     coin_market = cg.get_coins_markets(vs_currency='usd', per_page=250, page=page)
-    df_market = pd.DataFrame(coin_market, columns=['market_cap_rank','id','name','current_price',"price_change_24h","price_change_percentage_24h",'market_cap',"market_cap_change_percentage_24h",'total_volume',  "circulating_supply", "max_supply", "high_24h", "low_24h", ])   
-    connect = sqlite3.connect('coins.db')
-    df_market.to_sql(name='Coins_Markets', con=connect, if_exists='replace')
-    connect.close()
+    df_market = pd.DataFrame(coin_market, columns=['market_cap_rank','id','name','current_price',"price_change_24h","price_change_percentage_24h",'market_cap',"market_cap_change_percentage_24h",'total_volume',  "circulating_supply", "max_supply", "high_24h", "low_24h", ])
+    engine = create_engine('postgresql+psycopg2://postgres:Kazakhstan01@localhost:5432/coins')
+    df_market.to_sql('coins_info', engine, if_exists='replace')
+    # try: 
+    #     engine.execute(
+    #                     """ALTER TABLE coins_info 
+    #                             ALTER COLUMN index TYPE smallint,
+    #                             ALTER COLUMN market_cap_rank TYPE smallint,
+    #                             ALTER COLUMN id TYPE VARCHAR(75),
+    #                             ALTER COLUMN name TYPE VARCHAR(75),
+    #                             ALTER COLUMN current_price TYPE real,
+    #                             ALTER COLUMN price_change_percentage_24h TYPE real,
+    #                             ALTER COLUMN market_cap_change_percentage_24h TYPE real,
+    #                             ALTER COLUMN total_volume TYPE real,
+    #                             ALTER COLUMN circulating_supply TYPE real,
+    #                             ALTER COLUMN max_supply TYPE real,
+    #                             ALTER COLUMN high_24h TYPE real,
+    #                             ALTER COLUMN low_24h TYPE real;
+    #                     """
+    #                 )
+    #     print('ALL RIGHT MAN')
+    # except:
+    #     print("Not good MAN")
+
 
 def check_crypto_price(coin):
     try:
-        get_top_250_coins()
-        sqlite_connection = sqlite3.connect('coins.db')
-        cursor = sqlite_connection.cursor()
-        print("Подключен к SQLite")
-        cursor.execute("SELECT cm.id, lower(cm.name), cm.current_price FROM Coins_Markets cm WHERE lower(cm.name) = '{}' or cm.id = '{}'".format(coin, coin))
-        data = cursor.fetchone()
-        cursor.close()
-        return data[2]
-    except:
-        print('Fatality')
+        get_coins_api_postgres()
+        connection = psycopg2.connect(
+                host = settings.host,
+                database = settings.db_name,
+                user = settings.user,
+                password = settings.password,
+                port = settings.port_id
+            )
+            # Call IT one Time That's it
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT current_price
+	            FROM coins_info
+                WHERE lower(name) = %s OR id = %s;
+                """, [coin, coin ])
+            data = cursor.fetchall()
+            strings = [str(integer) for integer in data]
+            print(strings)
+            a_string = "".join(strings)
+            a_string = a_string.replace(',','').replace('(','').replace(')','')
+            res = float(a_string)
+            return res
+
+    except Exception as _ex:
+            print("[INFO] Error while working with PostgreSQL", _ex)
+    finally:
+        if connection:
+            connection.close()
+            print("[INFO] PostgreSQL connection closed")
     
+check_crypto_price('bitcoin')
