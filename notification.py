@@ -4,9 +4,10 @@ import sqlite3
 import crypto_price
 import os
 import account_setings
+import psycopg2
+import settings
 
-bot_token = os.getenv('bot')
-
+bot_token = os.getenv('bot_2')
 
 # fn to send_message through telegram
 def send_message(chat_id, msg):
@@ -15,826 +16,84 @@ def send_message(chat_id, msg):
     # send the msg
     requests.get(url)
 
-
-
 def main():
-    sqlite_connection = sqlite3.connect('customer.db')
-    cursor = sqlite_connection.cursor()
-    print("Подключен к SQLite")
-    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-    FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-    WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-    cursor.execute(sqlite_select_query)
-    user_info = cursor.fetchall()
-    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-    cursor.close()
-    print(user_info)
-    while True:
-        for i in range(len(user_info)):
-            print(i)
-            if user_info[i][2] == 'bitcoin' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_btc_price() > user_info[i][3]:
-                    print('yes')
-                    send_message(chat_id=user_info[i][4],
-                    msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                        f"lower than the current price {crypto_price.check_btc_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
+        while True:
+            try: 
+                connection = psycopg2.connect(
+                    host = settings.host,
+                    database = settings.db_name_2,
+                    user = settings.user,
+                    password = settings.password,
+                    port = settings.port_id)
+                connection.autocommit = True
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                    """
+                    SELECT c_c.note_id, cm.customer_name, c.coin_name, c.coin_market_id ,c_c.price_coin, cm.id, c_c.up_or_down_price, c_c.notified_or_not
+                    FROM customer_coin c_c
+                    INNER JOIN customer cm 
+                    ON c_c.id_customer =  cm.id
+                    INNER JOIN coin c
+                    ON c_c.id_coin = c.id;
+                    """)
                     user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
+                    # cursor.close()
+            except: 
+                print('error')
 
-            if user_info[i][2] == 'bitcoin' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_btc_price() < user_info[i][3]:
-                    print('yes')
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_btc_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1 WHERE note_id = {id}""")
-                    connect.commit()
-                    cursor.close()
+            for i in range(len(user_info)):
+                print(i)
+                print("I AM WORKING DON'T WORRY")
+                if user_info[i][6] == True and user_info[i][7] == False:
+                    if crypto_price.check_crypto_price(user_info[i][2]) > user_info[i][4]:
+                        send_message(chat_id=user_info[i][5],
+                            msg=f"Your set price of {user_info[i][2].capitalize()} is {user_info[i][4]} "
+                            f"lower than the current price {crypto_price.check_crypto_price(user_info[i][2])}")
+                        try:
+                            connection = psycopg2.connect(
+                            host = settings.host,
+                            database = settings.db_name_2,
+                            user = settings.user,
+                            password = settings.password,
+                            port = settings.port_id
+                            )
+                            connection.autocommit = True
+                            with connection.cursor() as cursor:
+                                cursor.execute("""
+                                UPDATE customer_coin SET notified_or_not = true WHERE note_id = %s
+                                """, [user_info[i][0]])
+                                cursor.close()
+                                print("[INFO] PostgreSQL connection closed")
+                        except Exception as _ex:
+                            print("[INFO] Error while working with PostgreSQL", _ex)
+                        
 
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'ethereum' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_eth_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                    msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                        f"lower than the current price {crypto_price.check_eth_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'ethereum' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_eth_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                    msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                    f"higher than the current price: {crypto_price.check_eth_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'binancecoin' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_bnb_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_bnb_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'binancecoin' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_bnb_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_bnb_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'litecoin' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_litecoin_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_litecoin_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'litecoin' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_litecoin_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_litecoin_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'solana' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_solana_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_solana_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'solana' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_solana_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_solana_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'avalanche' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_avalanche_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_avalanche_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'avalanche' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_avalanche_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_avalanche_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'terra-luna' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.ccheck_terra_luna_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_terra_luna_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'terra-luna' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_terra_luna_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_terra_luna_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'ftx-token' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_ftx_token_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_ftx_token_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'ftx-token' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_ftx_token_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_ftx_token_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'polkadot' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_polkadot_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_polkadot_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'polkadot' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_polkadot_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_polkadot_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'near' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_near_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_near_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'near' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_near_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_polkadot_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'uniswap' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_uniswap_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_uniswap_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'uniswap' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_uniswap_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_uniswap_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'matic-network' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_polygon_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_polygon_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'matic-network' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_polygon_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_polygon_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'cardano' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_ada_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_ada_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    # id_customer = {user_info[i][4]}
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'cardano' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_ada_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_ada_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    # id_customer = {user_info[i][4]}
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'the-graph' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_the_graph_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"lower than the current price {crypto_price.check_the_graph_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    # print(i)
-                    # id_customer = {user_info[i][4]}
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'the-graph' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_the_graph_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_the_graph_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'dogecoin' and user_info[i][5] == 1 and user_info[i][6] == 0:
-                if crypto_price.check_dogecoin_price() > user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                    msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                    f"lower than the current price {crypto_price.check_dogecoin_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-
-            if user_info[i][2] == 'dogecoin' and user_info[i][5] == 0 and user_info[i][6] == 0:
-                if crypto_price.check_dogecoin_price() < user_info[i][3]:
-                    send_message(chat_id=user_info[i][4],
-                                 msg=f"Your set price of {user_info[i][2]} is {user_info[i][3]} "
-                                     f"higher than the current price: {crypto_price.check_dogecoin_price()}")
-                    connect = sqlite3.connect('customer.db')
-                    cursor = connect.cursor()
-                    id = user_info[i][0]
-                    cursor.execute(f"""UPDATE CUSTOMER_COIN SET notified_or_not = 1  WHERE note_id = {id} """)
-                    connect.commit()
-                    cursor.close()
-
-                    sqlite_connection = sqlite3.connect('customer.db')
-                    cursor = sqlite_connection.cursor()
-                    print("Подключен к SQLite")
-                    sqlite_select_query = """SELECT c_c.note_id, cm.customer_name, c.coin_name, c_c.price_coin, cm.id, up_or_down_price, c_c.notified_or_not
-                        FROM CUSTOMER_COIN c_c, CUSTOMER cm, COIN c
-                        WHERE c_c.id_customer = cm.id and c_c.id_coin = c.id"""
-                    cursor.execute(sqlite_select_query)
-                    user_info = cursor.fetchall()
-                    #### ЗАПИСЫВАЕМ ЗНАЧЕНИЯ ИЗ ТАБЛИЦЫ
-                    #### ДАННЫЕ ИЗ ТАБЛИЦЫ ПЕРЕПИСЫВАЮТСЯ В TEXT
-                    #### МЫ ПРИ ПОМОЩИ ЦИКЛА ПЕРЕПИСЫВАЕМ В ПЕРЕМЕННУЮ a
-                    cursor.close()
-                    print(user_info)
-        time.sleep(100)
-
+                elif user_info[i][6] == False and user_info[i][7] == False:
+                    if crypto_price.check_crypto_price(user_info[i][2]) < user_info[i][4]:
+                        send_message(chat_id=user_info[i][5],
+                            msg=f"Your set price of {user_info[i][2].capitalize()} is {user_info[i][4]} "
+                            f"higher than the current price: {crypto_price.check_crypto_price(user_info[i][2])}")
+                        try:
+                            connection = psycopg2.connect(
+                            host = settings.host,
+                            database = settings.db_name_2,
+                            user = settings.user,
+                            password = settings.password,
+                            port = settings.port_id
+                            )
+                            connection.autocommit = True
+                            with connection.cursor() as cursor:
+                                cursor.execute("""
+                                UPDATE customer_coin SET notified_or_not = true WHERE note_id = %s
+                                """, [user_info[i][0]])
+                        except Exception as _ex:
+                            print("[INFO] Error while working with PostgreSQL", _ex)
+                        finally:
+                            if connection is not None:
+                                connection.close()
+                                print("[INFO] PostgreSQL connection closed")
+                                                    
+            time.sleep(10)                         
 
 # fancy way to activate the main() function
 if __name__ == '__main__':
