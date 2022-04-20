@@ -101,7 +101,7 @@ Just type or click on commands:
                                                     "\nBitcoin 50000.")
             bot.register_next_step_handler(msg, add_record_db)
     finally:
-        if connection:
+        if connection is not None:
             connection.close()
             print("[INFO] PostgreSQL connection closed")
 
@@ -130,7 +130,7 @@ def create_groups(message):
                                                     "\nBitcoin 50000.")
             bot.register_next_step_handler(msg, add_record_db)
     finally:
-        if connection:
+        if connection is not None:
             connection.close()
             print("[INFO] PostgreSQL connection closed")
 
@@ -274,7 +274,7 @@ def add_record_db(message):
             msg = ("[INFO] Error while working with PostgreSQL", _ex)
             bot.send_message(message.chat.id, msg)
         finally:
-            if connection:
+            if connection is not None:
                 connection.close()
                 print("[INFO] PostgreSQL connection closed")
         
@@ -321,7 +321,7 @@ def list_coins_2():
     except Exception as _ex:
         print("[INFO] Error while working with PostgreSQL", _ex)
     finally:
-        if connection:
+        if connection is not None:
             connection.close()
             print("[INFO] PostgreSQL connection closed")
 
@@ -351,7 +351,7 @@ def indexUserCoin(coin):
     except Exception as _ex:
         print("[INFO] Error while working with PostgreSQL", _ex)
     finally:
-        if connection:
+        if connection is not None:
             connection.close()
             print("[INFO] PostgreSQL connection closed")
 
@@ -418,21 +418,21 @@ def constant_db(message):
             except Exception as _ex:
                 print("[INFO] Error while working with PostgreSQL", _ex)
             finally:
-                if connection:
+                if connection is not None:
                     connection.close()
                     print("[INFO] PostgreSQL connection closed")
 
         except Exception as _ex:
             print("[INFO] Error while working with PostgreSQL", _ex)
         finally:
-            if connection:
+            if connection is not None:
                 connection.close()
                 print("[INFO] PostgreSQL connection closed")                
 
     except Exception as _ex:
         print("[INFO] Error while working with PostgreSQL", _ex)
     finally:
-        if connection:
+        if connection is not None:
             connection.close()
             print("[INFO] PostgreSQL connection closed")
 
@@ -482,7 +482,7 @@ def read_sqlite_table(message):
     except Exception as _ex:
             bot.send_message(message.chat.id, "[INFO] Error while working with PostgreSQL", _ex)
     finally:
-        if connection:
+        if connection is not None:
             connection.close()
             print("[INFO] PostgreSQL connection closed")
 
@@ -515,7 +515,7 @@ def read_records_table(person_id):
     except:
             bot.send_message(person_id, "No such record exists")
     finally:
-        if connection:
+        if connection is not None:
             connection.close()
             print("[INFO] PostgreSQL connection closed")
 
@@ -555,7 +555,7 @@ def delete_record_from_db(message):
                     except Exception as _ex:
                         bot.send_message(message.chat.id, "[INFO] Error while working with PostgreSQL", _ex)
                     finally:
-                        if connection:
+                        if connection is not None:
                             connection.close()
                             print("[INFO] PostgreSQL connection closed")
                 else:
@@ -651,7 +651,7 @@ def get_100_coins_db(message):
     except:
             bot.send_message(message.chat.id, "I can't do it right now.")
     finally:
-        if connection:
+        if connection is not None:
             connection.close()
             print("[INFO] PostgreSQL connection closed")
 
@@ -734,7 +734,7 @@ def list_coins(message):
         msg = ("[INFO] Error while working with PostgreSQL", _ex)
         bot.send_message(message.chat.id, msg)
     finally:
-        if connection:
+        if connection is not None:
             connection.close()
             print("[INFO] PostgreSQL connection closed")
 

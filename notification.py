@@ -38,8 +38,10 @@ def main():
                     """)
                     user_info = cursor.fetchall()
                     # cursor.close()
-            except: 
-                print('error')
+            finally:
+                if connection is not None:
+                    connection.close()
+                    print("[INFO] PostgreSQL connection closed")
 
             for i in range(len(user_info)):
                 print(i)
@@ -66,8 +68,11 @@ def main():
                                 print("[INFO] PostgreSQL connection closed")
                         except Exception as _ex:
                             print("[INFO] Error while working with PostgreSQL", _ex)
+                        finally:
+                            if connection is not None:
+                                connection.close()
+                                print("[INFO] PostgreSQL connection closed")
                         
-
                 elif user_info[i][6] == False and user_info[i][7] == False:
                     if crypto_price.check_crypto_price(user_info[i][2]) < user_info[i][4]:
                         send_message(chat_id=user_info[i][5],
