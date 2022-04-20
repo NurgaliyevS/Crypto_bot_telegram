@@ -9,8 +9,6 @@ import json
 from time import sleep
 import time
 import sqlite3
-
-from zmq import TYPE
 import crypto_price
 import os
 import account_setings
@@ -794,4 +792,12 @@ def find_crypto(message):
         "\nThen, try again"
         "\n/find")
 
-bot.polling(none_stop=True, timeout=123)
+# bot.polling(none_stop=True, timeout=123)
+while True:
+    try:
+        bot.polling(none_stop=True, timeout=123)
+    except Exception as e:
+        # logger.error(e)  # или просто print(e) если у вас логгера нет,
+        print(e)
+        # или import traceback; traceback.print_exc() для печати полной инфы
+        time.sleep(15)
