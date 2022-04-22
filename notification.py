@@ -98,7 +98,7 @@ def main():
                                 connection.close()
                                 print("[INFO] PostgreSQL connection closed")
                                                     
-            time.sleep(10)                         
+            time.sleep(100)                         
 
 # fancy way to activate the main() function
 if __name__ == '__main__':
