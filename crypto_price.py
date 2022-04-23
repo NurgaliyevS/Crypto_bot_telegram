@@ -51,10 +51,7 @@ def get_coins_api_postgres():
         print('ALL RIGHT MAN')
     except:
         print("Not good MAN")
-
-
-get_coins_api_postgres()
-
+    
 def check_crypto_price(coin):
     try:
         coin = coin.lower()
@@ -88,5 +85,3 @@ def check_crypto_price(coin):
     #     if connection:
     #         connection.close()
     #         print("[INFO] PostgreSQL connection closed")
-    
-check_crypto_price('bitcoin')
