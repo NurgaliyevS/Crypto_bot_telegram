@@ -29,7 +29,7 @@ def get_coins_api_postgres():
     page = 0
     coin_market = cg.get_coins_markets(vs_currency='usd', per_page=250, page=page)
     df_market = pd.DataFrame(coin_market, columns=['market_cap_rank','id','name','current_price',"price_change_24h","price_change_percentage_24h",'market_cap',"market_cap_change_percentage_24h",'total_volume',  "circulating_supply", "max_supply", "high_24h", "low_24h", ])
-    engine = create_engine('postgresql+psycopg2://postgres:Kazakhstan01@localhost:5432/coins')
+    engine = create_engine('postgresql+psycopg2://postgres:{}@localhost:5432/coins'.format(settings.password))
     df_market.to_sql('coins_info', engine, if_exists='replace')
     try: 
         engine.execute(
@@ -47,11 +47,13 @@ def get_coins_api_postgres():
                                 ALTER COLUMN high_24h TYPE real,
                                 ALTER COLUMN low_24h TYPE real;
                         """
-                    )
+                    )    
         print('ALL RIGHT MAN')
     except:
         print("Not good MAN")
 
+
+get_coins_api_postgres()
 
 def check_crypto_price(coin):
     try:
