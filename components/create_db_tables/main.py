@@ -68,7 +68,7 @@ try:
                 note_id smallserial PRIMARY KEY,
                 id_customer integer,
                 id_coin smallint,
-                price_coin integer,
+                price_coin real,
                 up_or_down_price boolean,
                 notified_or_not boolean,
                 FOREIGN KEY(id_customer) REFERENCES CUSTOMER(id),

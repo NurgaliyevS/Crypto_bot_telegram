@@ -215,9 +215,11 @@ def add_record_db(message):
             try: 
                 float(i)
                 price.append(i)
+                print(price, 'PRICE real')
             except:        
                 if i.isdigit():
                     price.append(i)
+                    print(price, 'PRICE INT')
                 else:
                     coin.append(i)
         coin = ' '.join([str(item) for item in coin])
@@ -238,8 +240,10 @@ def add_record_db(message):
             userPrice = ''
             for i in price:
                 userPrice += i
-            print(crypto_price.check_crypto_price(coin))
-            print(type(crypto_price.check_crypto_price(coin)))
+            try:
+                userPrice = float(userPrice)
+            except:
+                userPrice = int(userPrice)
             if float(userPrice) >= crypto_price.check_crypto_price(coin):
                 user_up_or_down_price = True
                 notified_or_not = False
@@ -268,13 +272,14 @@ def add_record_db(message):
                                                             "\nYou will receive an alert when"
                                                             "\nyour price matches the current one.")
                 make_a_new_alert(message)
-        except Exception as _ex:
-            msg = ("[INFO] Error while working with PostgreSQL", _ex)
-            bot.send_message(message.chat.id, msg)
-        finally:
-            if connection is not None:
-                connection.close()
-                print("[INFO] PostgreSQL connection closed")
+        except:
+            msg = bot.send_message(message.chat.id, "I don't get it."
+                                                "\nTry again, please."
+                                                "\nExample:"
+                                                "\nBitcoin 50000."
+                                                "\nIf you want to return."
+                                                "\n/start")
+            bot.register_next_step_handler(msg, add_record_db)
         
     except:
         msg = bot.send_message(message.chat.id, "I don't get it."
